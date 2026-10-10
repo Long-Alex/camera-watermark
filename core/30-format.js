@@ -23,11 +23,11 @@ var expand = function (tpl) {
   var m = /@wm_time_([A-Za-z_]+)/.exec(tpl);
   if (m) return fmtTime(CONFIG.date, m[1]);
   if (tpl.indexOf('location_latlng') >= 0) {
-    var g = CONFIG.gps || {};
+    var g = CONFIG.gps || CONFIG;
     if (g.lat == null || g.lon == null) return '';
     return dms(g.lat, 'N', 'S') + ' ' + dms(g.lon, 'E', 'W');
   }
-  var e = CONFIG.exif || {};
+  var e = CONFIG.exif || CONFIG;   // 扁平键时直接读 CONFIG
   return tpl.replace(/@\{(\w+)\}/g, function (_, k) {
     switch (k) {
       case 'model': case 'versionName': return CONFIG.model || CONFIG.metadata.modelDefault || '';

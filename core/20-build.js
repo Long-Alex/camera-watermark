@@ -7,9 +7,10 @@ var buildNode = function (n) {
   if (t === 'divider') { var d = EL('div', css); return d; }
   if (t === 'image') {
     var box = EL('div', css); box.style.display = 'flex';
-    var key = Object.keys(ASSETS).filter(function (k) { return k.indexOf('logo:') === 0; })[0];
-    if (key) box.innerHTML = ASSETS[key];           // SVG 内联（currentColor 跟随 css.color）
-    if (n.optional && !key) box.style.display = 'none';
+    var src = document.getElementById('wm-logo-src');
+    var svg = src ? src.innerHTML : '';
+    if (svg) box.innerHTML = svg;                    // SVG 内联（currentColor 跟随 css.color）
+    if (n.optional && !svg) box.style.display = 'none';
     return box;
   }
   if (t === 'text') {

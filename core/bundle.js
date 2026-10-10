@@ -52,9 +52,10 @@ var buildNode = function (n) {
   if (t === 'divider') { var d = EL('div', css); return d; }
   if (t === 'image') {
     var box = EL('div', css); box.style.display = 'flex';
-    var key = Object.keys(ASSETS).filter(function (k) { return k.indexOf('logo:') === 0; })[0];
-    if (key) box.innerHTML = ASSETS[key];           // SVG 内联（currentColor 跟随 css.color）
-    if (n.optional && !key) box.style.display = 'none';
+    var src = document.getElementById('wm-logo-src');
+    var svg = src ? src.innerHTML : '';
+    if (svg) box.innerHTML = svg;                    // SVG 内联（currentColor 跟随 css.color）
+    if (n.optional && !svg) box.style.display = 'none';
     return box;
   }
   if (t === 'text') {
@@ -104,11 +105,11 @@ var expand = function (tpl) {
   var m = /@wm_time_([A-Za-z_]+)/.exec(tpl);
   if (m) return fmtTime(CONFIG.date, m[1]);
   if (tpl.indexOf('location_latlng') >= 0) {
-    var g = CONFIG.gps || {};
+    var g = CONFIG.gps || CONFIG;
     if (g.lat == null || g.lon == null) return '';
     return dms(g.lat, 'N', 'S') + ' ' + dms(g.lon, 'E', 'W');
   }
-  var e = CONFIG.exif || {};
+  var e = CONFIG.exif || CONFIG;   // 扁平键时直接读 CONFIG
   return tpl.replace(/@\{(\w+)\}/g, function (_, k) {
     switch (k) {
       case 'model': case 'versionName': return CONFIG.model || CONFIG.metadata.modelDefault || '';
@@ -126,7 +127,12 @@ var expand = function (tpl) {
 
 // 90-boot: 入口
 (function () {
-  var g = CONFIG.gps || {};
+  // 运行时值合并进 CONFIG（扁平注入, V19 同款）
+  ['unit','model','date','focal','focalActual','aperture','speed','iso','lat','lon'].forEach(function(k){
+    if (RTV && RTV[k] !== '' && RTV[k] != null) CONFIG[k] = RTV[k];
+  });
+  if (typeof CONFIG.unit === 'string') CONFIG.unit = parseFloat(CONFIG.unit);
+  var g = CONFIG.gps || CONFIG;
   var hasGps = g.lat != null && g.lon != null;
   var variants = CONFIG.layout_group || [];
   var pick = null;

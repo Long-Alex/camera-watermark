@@ -1,6 +1,11 @@
 // 90-boot: 入口
 (function () {
-  var g = CONFIG.gps || {};
+  // 运行时值合并进 CONFIG（扁平注入, V19 同款）
+  ['unit','model','date','focal','focalActual','aperture','speed','iso','lat','lon'].forEach(function(k){
+    if (RTV && RTV[k] !== '' && RTV[k] != null) CONFIG[k] = RTV[k];
+  });
+  if (typeof CONFIG.unit === 'string') CONFIG.unit = parseFloat(CONFIG.unit);
+  var g = CONFIG.gps || CONFIG;
   var hasGps = g.lat != null && g.lon != null;
   var variants = CONFIG.layout_group || [];
   var pick = null;
