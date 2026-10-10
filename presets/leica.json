@@ -219,5 +219,10 @@
       "color": "#000000",
       "line-height": 39.8
     }
-  }
+  },
+  "styleOrder": [
+    "light",
+    "dark",
+    "gold"
+  ]
 }
