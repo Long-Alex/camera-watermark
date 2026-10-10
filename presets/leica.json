@@ -24,7 +24,7 @@
           { "type": "column", "id": "left", "children": [
               { "type": "text", "id": "model", "font": "f1", "text": "@{model}" },
               { "type": "text", "id": "time",  "font": "f2", "margin-top": 10,
-                "text": "@wm_time_yyyy_MM_dd_HH_mm" } ] },
+                "text": "@wm_time_yyyy.MM.dd HH:mm" } ] },
           { "type": "row", "id": "right", "justify-content": "flex-end", "align-items": "center",
             "children": [
               { "type": "image", "id": "logo", "src": "logo", "height": 64, "optional": true },
@@ -53,7 +53,7 @@
                   { "type": "text", "id": "exif", "font": "f3", "text-align": "right",
                     "text": "@{focal}mm  f/@{aperture}  @{speed}s  ISO@{iso}" },
                   { "type": "text", "id": "time", "font": "f2", "margin-top": 10,
-                    "text": "@wm_time_yyyy_MM_dd_HH_mm" } ] } ] } ] } ] }
+                    "text": "@wm_time_yyyy.MM.dd HH:mm" } ] } ] } ] } ] }
   ],
 
   "fonts": {

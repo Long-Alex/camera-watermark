@@ -95,11 +95,12 @@ var dms = function (v, pos, neg) {
   return d + '°' + m + "'" + s + '"' + hemi;
 };
 var fmtSpeed = function (x) {
-  if (!x) return '';
+  x = Number(x);
+  if (!x || isNaN(x)) return '';
   if (x >= 1) return String(Math.round(x * 10) / 10);
   return '1/' + Math.round(1 / x);
 };
-var fmtNum = function (x, dec) { return x == null ? '' : String(Number(x.toFixed(dec))); };
+var fmtNum = function (x, dec) { x = Number(x); return (x == null || isNaN(x)) ? '' : String(Number(x.toFixed(dec))); };
 var expand = function (tpl) {
   if (tpl == null) return '';
   var m = /@wm_time_([A-Za-z_]+)/.exec(tpl);
