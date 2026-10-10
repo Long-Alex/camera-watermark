@@ -54,7 +54,12 @@ var buildNode = function (n) {
     var box = EL('div', css); box.style.display = 'flex';
     var src = document.getElementById('wm-logo-src');
     var svg = src ? src.innerHTML : '';
-    if (svg) box.innerHTML = svg;                    // SVG 内联（currentColor 跟随 css.color）
+    if (svg) {
+      box.innerHTML = svg;                           // SVG 内联（currentColor 跟随 css.color）
+      var inner = box.querySelector('svg');           // 让 SVG 撑满容器（否则被自身 width/height 框死）
+      if (inner) { inner.style.height = '100%'; inner.style.width = 'auto'; inner.setAttribute('height', '100%'); }
+      box.style.alignItems = 'center';
+    }
     if (n.optional && !svg) box.style.display = 'none';
     return box;
   }
