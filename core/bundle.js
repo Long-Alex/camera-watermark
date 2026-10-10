@@ -103,7 +103,7 @@ var fmtSpeed = function (x) {
 var fmtNum = function (x, dec) { x = Number(x); return (x == null || isNaN(x)) ? '' : String(Number(x.toFixed(dec))); };
 var expand = function (tpl) {
   if (tpl == null) return '';
-  var m = /@wm_time_([A-Za-z_]+)/.exec(tpl);
+  var m = /@wm_time_(.*)$/.exec(tpl);
   if (m) return fmtTime(CONFIG.date, m[1]);
   if (tpl.indexOf('location_latlng') >= 0) {
     var g = CONFIG.gps || CONFIG;
