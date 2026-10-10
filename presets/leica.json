@@ -1,0 +1,64 @@
+{
+  "version": "1",
+  "metadata": { "id": "leica", "designShort": 1080, "bandDp": 159.8, "modelDefault": "iPhone" },
+
+  "compose": {
+    "mode": "stitch",
+    "stitch":  { "direction": "Vertically", "spacing": 0 },
+    "overlay": { "anchor": "Bottom Right", "width": 1080, "height": 160, "rotation": 0, "opacity": 100 }
+  },
+
+  "styles": {
+    "light": { "fontColor": "#000000", "bgColor": "#FFFFFF" },
+    "dark":  { "fontColor": "#FFFFFF", "bgColor": "#141414" },
+    "gold":  { "fontColor": "#000000", "bgColor": "#FFFFFF" }
+  },
+
+  "layout_group": [
+    { "layout": [
+      { "type": "row", "id": "bottom_layout",
+        "width": "100%", "height": "auto", "align-items": "center",
+        "background-color": "#FFFFFF",
+        "padding": { "top": 40, "bottom": 40, "left": 48, "right": 48 },
+        "children": [
+          { "type": "column", "id": "left", "children": [
+              { "type": "text", "id": "model", "font": "f1", "text": "@{model}" },
+              { "type": "text", "id": "time",  "font": "f2", "margin-top": 10,
+                "text": "@wm_time_yyyy_MM_dd_HH_mm" } ] },
+          { "type": "row", "id": "right", "justify-content": "flex-end", "align-items": "center",
+            "children": [
+              { "type": "image", "id": "logo", "src": "logo", "height": 64, "optional": true },
+              { "type": "divider", "id": "sep", "width": 2, "height": 64, "margin-left": 24,
+                "background-color": "rgba(0,0,0,.30)" },
+              { "type": "column", "id": "exif_column", "margin-left": 24, "children": [
+                  { "type": "text", "id": "exif", "font": "f3", "text-align": "right",
+                    "text": "@{focal}mm  f/@{aperture}  @{speed}s  ISO@{iso}" },
+                  { "type": "text", "id": "location", "font": "f2", "margin-top": 10,
+                    "text": "location_latlng" } ] } ] } ] } ] },
+
+    { "layout_loc_off": [
+      { "type": "row", "id": "bottom_layout",
+        "width": "100%", "height": "auto", "align-items": "center",
+        "background-color": "#FFFFFF",
+        "padding": { "top": 40, "bottom": 40, "left": 48, "right": 48 },
+        "children": [
+          { "type": "column", "id": "left", "children": [
+              { "type": "text", "id": "model", "font": "f1", "text": "@{model}" } ] },
+          { "type": "row", "id": "right", "justify-content": "flex-end", "align-items": "center",
+            "children": [
+              { "type": "image", "id": "logo", "src": "logo", "height": 64, "optional": true },
+              { "type": "divider", "id": "sep", "width": 2, "height": 64, "margin-left": 24,
+                "background-color": "rgba(0,0,0,.30)" },
+              { "type": "column", "id": "exif_column", "margin-left": 24, "children": [
+                  { "type": "text", "id": "exif", "font": "f3", "text-align": "right",
+                    "text": "@{focal}mm  f/@{aperture}  @{speed}s  ISO@{iso}" },
+                  { "type": "text", "id": "time", "font": "f2", "margin-top": 10,
+                    "text": "@wm_time_yyyy_MM_dd_HH_mm" } ] } ] } ] } ] }
+  ],
+
+  "fonts": {
+    "f1": { "font-size": 30.6, "font-weight": 600, "color": "#000000", "line-height": 40.6 },
+    "f2": { "font-size": 22,   "font-weight": 400, "color": "rgba(0,0,0,.50)", "line-height": 29.2, "letter-spacing": "0.083em" },
+    "f3": { "font-size": 30,   "font-weight": 600, "color": "#000000", "line-height": 39.8 }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "prompts": {
+    "source": "请选择要添加水印的照片",
+    "preset": "请选择水印款式",
+    "style":  "请选择样式",
+    "logo":   "请选择品牌图标"
+  },
+  "items": {
+    "source": { "album": "从相册选择", "file": "从文件选择", "camera": "后置拍摄" },
+    "preset": { "leica": "徕卡" },
+    "style":  { "light": "浅色", "dark": "深色", "gold": "金色" },
+    "logo":   {}
+  },
+  "alerts": {
+    "done": "添加成功啦～请前往相册查看哦🎉"
+  }
+}

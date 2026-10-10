@@ -1,0 +1,10 @@
+<!DOCTYPE html><html><head><meta charset=utf-8>
+<style id="wm-style"></style>
+</head><body>
+<div id="wm-root"></div>
+<script>
+var CONFIG  = @@CONFIG@@;
+var OVERRIDE= @@OVERRIDE@@;
+var ASSETS  = @@ASSETS@@;
+@@CORE_JS@@
+</script></body></html>
