@@ -1,8 +1,10 @@
 <!DOCTYPE html><html><head><meta charset=utf-8>
 <style id="wm-style"></style>
 </head><body>
+<script>window.onerror=function(m,src,l,c){var e=document.getElementById("err");if(e)e.textContent="ERR: "+m+" line "+l+":"+c;};</script>
 <script>document.addEventListener("DOMContentLoaded",function(){var e=document.getElementById("static-probe");if(e)e.textContent="JS-RAN";});</script>
 <div id="wm-root"></div>
+<div id="err" style="font-size:22px;color:#c00;font-family:Helvetica">no-err</div>
 <div id="static-probe" style="font-size:40px;color:#000;font-family:Helvetica,sans-serif">静态测试 ABC</div>
 <div id="wm-logo-src" style="display:none">@@LOGO@@</div>
 <script>
