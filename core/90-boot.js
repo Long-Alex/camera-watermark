@@ -1,5 +1,5 @@
 // 90-boot: 入口
-(function () {
+(function () { try {
   // 运行时值合并进 CONFIG（扁平注入, V19 同款）
   ['unit','model','date','focal','focalActual','aperture','speed','iso','lat','lon'].forEach(function(k){
     if (RTV && RTV[k] !== '' && RTV[k] != null) CONFIG[k] = RTV[k];
@@ -25,4 +25,8 @@
   }
   pick.forEach(function (n) { root.appendChild(buildNode(n)); });
   fitText(root);
+  } catch (e) {
+    var box = document.getElementById('err');
+    if (box) box.textContent = 'ERR: ' + e.message + ' | ' + (e.stack || '').split('\n').slice(0, 3).join(' <- ');
+  }
 })();
