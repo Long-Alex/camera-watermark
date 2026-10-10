@@ -97,7 +97,8 @@ var fmtTime = function (iso, pattern) {
 var dms = function (v, pos, neg) {
   var hemi = v >= 0 ? pos : neg, a = Math.abs(v);
   var d = Math.floor(a), m = Math.floor((a - d) * 60), s = Math.floor(((a - d) * 60 - m) * 60);
-  return d + '°' + m + "'" + s + '"' + hemi;
+  var ss = (s < 10 ? '0' : '') + s;
+  return d + '°' + m + "'" + ss + '"' + hemi;
 };
 var fmtSpeed = function (x) {
   x = Number(x);
