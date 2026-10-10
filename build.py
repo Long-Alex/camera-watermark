@@ -52,6 +52,16 @@ for pf in sorted((R / 'presets').glob('*.json')):
         preset['metadata']['bandDp'] = bd
         pf.write_text(json.dumps(preset, ensure_ascii=False, indent=2) + "\n")
 
+# 2.5) 生成 itemsReverse（标签→id），供快捷指令从"显示名"反查 id
+mp = R / 'messages.json'
+msg = json.loads(mp.read_text())
+rev = {}
+for sec, kv in (msg.get('items') or {}).items():
+    rev[sec] = {v: k for k, v in kv.items()}
+msg['itemsReverse'] = rev
+mp.write_text(json.dumps(msg, ensure_ascii=False, indent=2) + "\n")
+print("  messages.json: itemsReverse 已生成", {k: len(v) for k, v in rev.items()})
+
 # 3) 素材引用校验
 for pf in (R / 'presets').glob('*.json'):
     preset = json.loads(pf.read_text())
