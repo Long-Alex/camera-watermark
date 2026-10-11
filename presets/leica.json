@@ -4,7 +4,7 @@
     "id": "leica",
     "designShort": 1080,
     "bandDp": 159.8,
-    "modelDefault": "iPhone",
+    "modelDefault": "iPhone 18 Pro Max",
     "bandDpByVariant": {
       "layout": 159.8,
       "layout_loc_off": 159.0
@@ -34,37 +34,14 @@
       "opacity": 100
     }
   },
-  "styles": {
-    "light": {
-      "foregroundStart": "#000000",
-      "foregroundEnd": "#000000",
-      "foregroundStop": "30%",
-      "foregroundDirection": "90deg",
-      "lineOpacity": 0.3,
-      "bgColor": "#FFFFFF"
-    },
-    "dark": {
-      "foregroundStart": "#FFFFFF",
-      "foregroundEnd": "#FFFFFF",
-      "foregroundStop": "30%",
-      "foregroundDirection": "90deg",
-      "lineOpacity": 0.7,
-      "bgColor": "#141414"
-    },
-    "gold": {
-      "foregroundStart": "#FDC9AE",
-      "foregroundEnd": "#F5E3D9",
-      "foregroundStop": "30%",
-      "foregroundDirection": "45deg",
-      "lineOpacity": 0.7,
-      "bgColor": "#1D1D1F"
-    }
+  "appearance": {
+    "foregroundStart": "#000000",
+    "foregroundEnd": "#000000",
+    "foregroundStop": "30%",
+    "foregroundDirection": "90deg",
+    "lineOpacity": 0.3,
+    "bgColor": "#FFFFFF"
   },
-  "styleOrder": [
-    "light",
-    "dark",
-    "gold"
-  ],
   "layout_group": [
     {
       "layout": [

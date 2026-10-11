@@ -19,7 +19,8 @@ var RTV     = { unit:@@UNIT@@, model:"@@MODEL@@", date:"@@TIME@@",
                 lat:"@@LAT@@", lon:"@@LON@@" };
 var OVERRIDE= { foregroundStart:"@@FOREGROUND_START@@", foregroundEnd:"@@FOREGROUND_END@@",
                 foregroundStop:"@@FOREGROUND_STOP@@", foregroundDirection:"@@FOREGROUND_DIRECTION@@",
-               bgColor:"@@BG_COLOR@@", bgImage:"@@BG_IMAGE@@" };
+                lineOpacity:"@@LINE_OPACITY@@",
+                bgColor:"@@BG_COLOR@@", bgImage:"@@BG_IMAGE@@" };
 var ASSETS  = {};
 @@CORE_JS@@
 </script></body></html>

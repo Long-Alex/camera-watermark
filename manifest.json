@@ -1,6 +1,7 @@
 {
-  "version": "32a232cfb5c4",
+  "version": "a2ab5141655a",
   "messages": "messages.json",
+  "styles": "styles.json",
   "presets": [
     "leica"
   ],

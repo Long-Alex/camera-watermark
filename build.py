@@ -93,6 +93,24 @@ for pf in sorted((R / 'presets').glob('*.json')):
 manifest = json.loads((R / 'manifest.json').read_text())
 messages = json.loads((R / manifest.get('messages', 'messages.json')).read_text())
 logo_ids = sorted(p.stem for p in (R / 'assets' / 'logo').glob('*.txt'))
+styles_path = R / manifest.get('styles', 'styles.json')
+if not styles_path.exists():
+    err(f"manifest.styles 指向的 {styles_path.name} 不存在")
+styles_doc = json.loads(styles_path.read_text()) if styles_path.exists() else {}
+style_ids = list(styles_doc.get('order') or [])
+style_table = styles_doc.get('styles') or {}
+for sid in style_ids:
+    st = style_table.get(sid)
+    if st is None:
+        err(f"{styles_path.name}: order 里的 '{sid}' 不在 styles 里")
+        continue
+    for k in ('foregroundStart', 'foregroundEnd', 'bgColor'):
+        if not st.get(k):
+            err(f"{styles_path.name}: styles.{sid} 缺 {k}")
+for sid in style_table:
+    if sid not in style_ids:
+        warn(f"{styles_path.name}: styles.{sid} 不在 order 里（菜单里看不到）")
+print(f"  {styles_path.name}: {len(style_ids)} 款配色 {style_ids}")
 
 # 3.1 manifest.presets ↔ presets/*.json
 listed = manifest.get('presets') or []
@@ -113,15 +131,8 @@ for menu in manifest.get('menus') or []:
         if not listed:
             err("role=preset 但 manifest.presets 为空")
     elif role == 'style':
-        for pid in listed:
-            st = (presets[pid].get('styles') or {})
-            order = presets[pid].get('styleOrder') or []
-            for sid in order:
-                if sid not in st:
-                    err(f"preset {pid}: styleOrder 里的 '{sid}' 不在 styles 里")
-            for sid in st:
-                if sid not in order:
-                    warn(f"preset {pid}: styles.{sid} 不在 styleOrder 里（菜单里看不到）")
+        if not style_ids:
+            err(f"role=style 但 {styles_path.name} 的 order 为空")
     elif role == 'logo':
         if not logo_ids:
             err("role=logo 但 assets/logo/ 为空")
@@ -131,6 +142,13 @@ for menu in manifest.get('menus') or []:
         warn(f"messages.prompts 缺菜单 '{mid}' 的提示语")
     if mid not in (messages.get('items') or {}) and role not in ('source', 'logo'):
         warn(f"messages.items 缺菜单 '{mid}'（显示名将回落为 id）")
+
+# 3.25 preset 只管水印本身：配色表已独立为 styles.json
+for stem, preset in presets.items():
+    if 'styles' in preset or 'styleOrder' in preset:
+        err(f"presets/{stem}.json 不该有 styles/styleOrder（配色表已独立为 {styles_path.name}）")
+    if not (preset.get('appearance') or {}).get('bgColor'):
+        err(f"presets/{stem}.json 缺 appearance.bgColor（默认外观）")
 
 # 3.3 preset 内素材引用
 for stem, preset in presets.items():
@@ -165,7 +183,8 @@ for stem, preset in presets.items():
 
 skeleton = (R / 'index.html.txt').read_text()
 for name in ['CONFIG', 'LOGO', 'CORE_JS', 'UNIT', 'MODEL', 'TIME', 'FOCAL', 'APERTURE', 'SPEED', 'ISO', 'LAT', 'LON',
-             'FOREGROUND_START', 'FOREGROUND_END', 'FOREGROUND_STOP', 'FOREGROUND_DIRECTION', 'BG_COLOR', 'BG_IMAGE']:
+             'FOREGROUND_START', 'FOREGROUND_END', 'FOREGROUND_STOP', 'FOREGROUND_DIRECTION', 'LINE_OPACITY',
+             'BG_COLOR', 'BG_IMAGE']:
     if f"@@{name}@@" not in skeleton:
         err(f"index.html.txt 缺占位符 @@{name}@@")
 
@@ -197,6 +216,7 @@ print(f"  manifest.logos = {logo_ids}")
 
 # ---------------------------------------------------------------- 5) version = 载荷哈希
 PAYLOAD = [R / 'index.html.txt', R / 'messages.json']
+PAYLOAD += [q for q in [R / manifest.get('styles', 'styles.json')] if q.exists()]
 PAYLOAD += sorted((R / 'presets').glob('*.json'))
 PAYLOAD += sorted((R / 'menus').glob('*'))
 PAYLOAD += sorted((R / 'assets').rglob('*.txt'))

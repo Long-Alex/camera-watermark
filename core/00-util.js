@@ -13,3 +13,8 @@ var EL = function (tag, css, text) {
 };
 var PAD = function (p, side) { return p && p[side] != null ? p[side] : 0; };
 var FONT = function (n) { return n.font ? ((CONFIG.fonts || {})[n.font] || null) : null; };
+// 外观取值：CONFIG.appearance 是 preset 默认值，运行时已被 OVERRIDE 改写（§4.5）
+var APP = function (k, dflt) {
+  var a = CONFIG.appearance || {};
+  return (a[k] != null && a[k] !== '') ? a[k] : dflt;
+};

@@ -9,12 +9,12 @@ var paintGradient = function (svg) {
   var ns = 'http://www.w3.org/2000/svg';
   var defs = document.createElementNS(ns, 'defs');
   var g = document.createElementNS(ns, 'linearGradient');
-  var angle = (parseFloat(OVERRIDE.foregroundDirection) - 90) * Math.PI / 180;
+  var angle = (parseFloat(APP('foregroundDirection', '90deg')) - 90) * Math.PI / 180;
   var dx = Math.cos(angle), dy = Math.sin(angle);
   g.setAttribute('id', SVG_GRADIENT_ID);
   g.setAttribute('x1', (50 - dx * 50) + '%'); g.setAttribute('y1', (50 - dy * 50) + '%');
   g.setAttribute('x2', (50 + dx * 50) + '%'); g.setAttribute('y2', (50 + dy * 50) + '%');
-  [[OVERRIDE.foregroundStop, OVERRIDE.foregroundStart], ['100%', OVERRIDE.foregroundEnd]]
+  [[APP('foregroundStop', '0%'), APP('foregroundStart', '#000000')], ['100%', APP('foregroundEnd', '#000000')]]
     .forEach(function (st) {
       var s = document.createElementNS(ns, 'stop');
       s.setAttribute('offset', st[0]); s.setAttribute('stop-color', st[1]);
@@ -36,9 +36,9 @@ var buildNode = function (n) {
 
   if (t === 'divider') {                                  // 2dp × 64dp 色块（@foreground=1）
     var d = EL('div', css);
-    d.style.backgroundImage = 'linear-gradient(' + OVERRIDE.foregroundDirection + ',var(--foreground-start) ' +
-                              OVERRIDE.foregroundStop + ',var(--foreground-end))';
-    if (css.opacity == null) d.style.opacity = OVERRIDE.lineOpacity;
+    d.style.backgroundImage = 'linear-gradient(' + APP('foregroundDirection', '90deg') + ',var(--foreground-start) ' +
+                              APP('foregroundStop', '0%') + ',var(--foreground-end))';
+    if (css.opacity == null) d.style.opacity = APP('lineOpacity', 1);   // @foreground=1 的 alpha
     d.setAttribute('data-id', n.id);
     return d;
   }

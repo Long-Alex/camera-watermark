@@ -1,0 +1,33 @@
+{
+  "order": [
+    "light",
+    "dark",
+    "gold"
+  ],
+  "styles": {
+    "light": {
+      "foregroundStart": "#000000",
+      "foregroundEnd": "#000000",
+      "foregroundStop": "30%",
+      "foregroundDirection": "90deg",
+      "lineOpacity": 0.3,
+      "bgColor": "#FFFFFF"
+    },
+    "dark": {
+      "foregroundStart": "#FFFFFF",
+      "foregroundEnd": "#FFFFFF",
+      "foregroundStop": "30%",
+      "foregroundDirection": "90deg",
+      "lineOpacity": 0.7,
+      "bgColor": "#141414"
+    },
+    "gold": {
+      "foregroundStart": "#FDC9AE",
+      "foregroundEnd": "#F5E3D9",
+      "foregroundStop": "30%",
+      "foregroundDirection": "45deg",
+      "lineOpacity": 0.7,
+      "bgColor": "#1D1D1F"
+    }
+  }
+}

@@ -24,17 +24,24 @@
     }
     CONFIG.unit = parseFloat(CONFIG.unit) || 1;
 
-    // 2) 主题变量（§4.5 覆盖对象）
+    // 2) 覆盖对象 → 改写 CONFIG.appearance（preset 只存默认值；配色表由快捷指令传入，见 §4.5）
+    var ap = CONFIG.appearance = CONFIG.appearance || {};
+    var APP_KEYS = ['foregroundStart','foregroundEnd','foregroundStop','foregroundDirection','lineOpacity','bgColor','bgImage'];
+    for (var a = 0; a < APP_KEYS.length; a++) {
+      var k = APP_KEYS[a];
+      if (OVERRIDE && OVERRIDE[k] !== '' && OVERRIDE[k] != null) ap[k] = OVERRIDE[k];
+    }
     var st = document.documentElement.style;
-    st.setProperty('--watermark-bg', OVERRIDE.bgColor || '#FFFFFF');
-    st.setProperty('--foreground-start', OVERRIDE.foregroundStart || '#000000');
-    st.setProperty('--foreground-end', OVERRIDE.foregroundEnd || OVERRIDE.foregroundStart || '#000000');
-    st.setProperty('--foreground-stop', OVERRIDE.foregroundStop || '0%');
-    st.setProperty('--foreground-direction', OVERRIDE.foregroundDirection || '90deg');
+    st.setProperty('--watermark-bg', APP('bgColor', '#FFFFFF'));
+    st.setProperty('--foreground-start', APP('foregroundStart', '#000000'));
+    st.setProperty('--foreground-end', APP('foregroundEnd', APP('foregroundStart', '#000000')));
+    st.setProperty('--foreground-stop', APP('foregroundStop', '0%'));
+    st.setProperty('--foreground-direction', APP('foregroundDirection', '90deg'));
 
     var root = document.getElementById('wm-root');
-    if (OVERRIDE.bgImage && typeof ASSETS !== 'undefined' && ASSETS['background:' + OVERRIDE.bgImage]) {
-      root.style.backgroundImage = 'url(' + ASSETS['background:' + OVERRIDE.bgImage] + ')';
+    var bgImage = APP('bgImage', '');
+    if (bgImage && typeof ASSETS !== 'undefined' && ASSETS['background:' + bgImage]) {
+      root.style.backgroundImage = 'url(' + ASSETS['background:' + bgImage] + ')';
       root.style.backgroundSize = '100% 100%';
     }
 

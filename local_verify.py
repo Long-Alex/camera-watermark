@@ -114,7 +114,7 @@ PROBE = r"""
 
 
 def build_page(preset, preset_text, bundle, case, style_id, logo_file, req_w):
-    style = preset["styles"][style_id]
+    style = STYLES["styles"][style_id]
     gps = case.get("gps")
     ex = case.get("exif") or {}
     def v(x):
@@ -130,6 +130,7 @@ def build_page(preset, preset_text, bundle, case, style_id, logo_file, req_w):
         "@@LAT@@": v(gps[0]) if gps else "", "@@LON@@": v(gps[1]) if gps else "",
         "@@FOREGROUND_START@@": style["foregroundStart"], "@@FOREGROUND_END@@": style["foregroundEnd"],
         "@@FOREGROUND_STOP@@": style["foregroundStop"], "@@FOREGROUND_DIRECTION@@": style["foregroundDirection"],
+        "@@LINE_OPACITY@@": str(style.get("lineOpacity", 1)),
         "@@BG_COLOR@@": style["bgColor"], "@@BG_IMAGE@@": "",
         "@@LOGO@@": (R / "assets" / "logo" / f"{logo_file}.txt").read_text() if logo_file else "",
         "@@CORE_JS@@": bundle,
@@ -306,6 +307,8 @@ def main():
             continue
         fails = check(res, preset, case)
         fails += check_pixels(res, preset, case, style_id)
+        if "want_divider" in res:
+            res.pop("want_divider")
         failures += len(fails)
         print(("✗ " if fails else "✓ ") + f"{case['name']:<24} {case['W']}x{case['H']} dpr={dpr} "
               f"unit={unit:.4f} reqW={req_w} bandH={band_h}pt {variant}" +
@@ -336,11 +339,20 @@ def check_pixels(res, preset, case, style_id):
     if not shot.exists():
         return ["截图缺失"]
     im = Image.open(shot).convert("RGB")
-    want = hex_rgb(preset["styles"][style_id]["bgColor"])
+    want = hex_rgb(STYLES["styles"][style_id]["bgColor"])
     got = im.getpixel((3, 3))
     if max(abs(a - b) for a, b in zip(got, want)) > 6:
         fails.append(f"截图底色 {got} ≠ 样式底色 {want}")
     rep = res["rep"] or {}
+    ln = (rep.get("boxes") or {}).get("line_layout")
+    # 分隔线宽 <1.5 设备像素时取色不可测（0.44px 抗锯齿），跳过颜色断言（几何断言仍在）
+    if ln and res.get("want_divider") and ln["w"] * res.get("dpr", 1) >= 1.5:
+        cx = int((ln["x"] + ln["w"] / 2) * res.get("dpr", 1))
+        cy = int((ln["y"] + ln["h"] / 2) * res.get("dpr", 1))
+        got = im.getpixel((cx, cy))
+        want = res["want_divider"]
+        if max(abs(g - w) for g, w in zip(got, want)) > 14:
+            fails.append(f"分隔线颜色 {got} ≠ 前景×lineOpacity 混底色 {want}")
     lb = (rep.get("boxes") or {}).get("logo")
     dpr = res.get("dpr", 1)
     if case.get("logo") and lb:
@@ -488,6 +500,14 @@ def check(res, preset, case):
                 fails.append(f"[ref] {k} y {b['y']:.2f} ≠ {rb['y']*u:.2f}")
             if not close(b["h"], rb["h"] * u, 1.2):
                 fails.append(f"[ref] {k} h {b['h']:.2f} ≠ {rb['h']*u:.2f}")
+    # ⑬b 分隔线颜色 = 前景色 × lineOpacity 混底色（防"透明度没传进来"这类静默错）
+    if line and row:
+        st = STYLES["styles"][case.get("style", "light")]
+        a = float(st.get("lineOpacity", 1))
+        fg = hex_rgb(st["foregroundStart"]); bg = hex_rgb(st["bgColor"])
+        want_px = tuple(round(a * f + (1 - a) * b) for f, b in zip(fg, bg))
+        res["want_divider"] = want_px
+
     # ⑭ 基线（设计字体 ascent = 1.044em）
     for fkey, node in (("f1", "model"), ("f2", "time" if res["variant"] == "layout" else "location"), ("f3", "exif")):
         b, m = B.get(node), rep["metrics"].get(fkey)
@@ -623,6 +643,7 @@ def write_report(results, pix=None):
 
 
 PRESET_CACHE = json.loads((R / "presets" / "leica.json").read_text())
+STYLES = json.loads((R / "styles.json").read_text())
 # 结构不同名/不同实现方式的容器：只比它们的内容节点
 SKIP_REF = {"bottom_layout", "right_bottom_group"}
 
