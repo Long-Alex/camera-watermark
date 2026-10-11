@@ -332,15 +332,13 @@ var expand = function (tpl) {
 
     var root = document.getElementById('wm-root');
     // 背景图：快捷指令注入 data URI（style 里的 background-image = assets/background/<id>.png）；
-    // 兼容旧写法：值若是名字则查 ASSETS['background:名字']（见踩坑 §19.10）
     // 定位/缩放由 style 的 background-fit 决定（缺省 cover）：
     //   cover   = 不变形、铺满、居中裁切（默认，适合照片/图案）
     //   repeat  = 高度铺满 + 按原比例横向平铺（适合纸纹/布料这类可平铺素材）
     //   stretch = 拉满整条带（素材本身就是按带子比例设计的才用，比如 1px 竖渐变）
-    var backgroundImage = BG_URI || APP('background-image', '');   // 背景图 data URI 优先（样式里的 background-image 只是素材 id）
+    var backgroundImage = BG_URI;   // 背景图 data URI（styles.json 的 background-image 只是素材 id，不是 URI）
     if (backgroundImage) {
-      var bgUrl = backgroundImage.indexOf('data:') === 0 ? backgroundImage
-                : (typeof ASSETS !== 'undefined' && ASSETS['background:' + backgroundImage]) || '';
+      var bgUrl = backgroundImage;
       if (bgUrl) {
         root.style.backgroundImage = 'url(' + bgUrl + ')';
         root.style.backgroundPosition = 'center';

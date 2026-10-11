@@ -1,5 +1,5 @@
 <!DOCTYPE html><html><head><meta charset=utf-8>
-<!-- 布局视口必须 = 请求宽度（= 照片宽/dpr）：手机（iOS/Android）对没有 viewport 的页面
+<!-- 布局视口必须 = 请求宽度（= 照片像素宽；不再除以 dpr，见踩坑 §9.1b）：手机（iOS/Android）对没有 viewport 的页面
      用默认 980px 排版再整页缩进请求的图，会让绝对 px 的字号/边距缩水到 reqW/980 ≈ 1/3。
      （桌面 Chrome/macOS 忽略这一条，所以本地校验看不出来 → 见 mobile_viewport_check.py） -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,6 +23,5 @@ var RTV     = { unit:@@UNIT@@, model:"@@MODEL@@", date:"@@TIME@@",
                 lat:"@@LAT@@", lon:"@@LON@@" };
 var OVERRIDE= @@APPEARANCE_JSON@@;   // 选中样式的 JSON 原文（键同 styles.json）
 var BG_URI   = "@@BACKGROUND_IMAGE@@";  // 背景图 data URI（有图才有）
-var ASSETS  = {};
 @@CORE_JS@@
 </script></body></html>
