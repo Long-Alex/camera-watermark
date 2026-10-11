@@ -1,12 +1,12 @@
 {
   "type": {
-    "白底黑字 · 清淡": "浅色",
-    "深灰底白字": "深色",
-    "黑底金色渐变字": "金色",
-    "红色底图 · 白字": "红色"
+    "浅色": "light",
+    "深色": "dark",
+    "金色": "rose",
+    "红色": "red"
   },
   "styles": {
-    "浅色": {
+    "light": {
       "foreground-start": "#000000",
       "foreground-end": "#000000",
       "foreground-stop": "30%",
@@ -14,7 +14,7 @@
       "line-opacity": 0.3,
       "background-color": "#FFFFFF"
     },
-    "深色": {
+    "dark": {
       "foreground-start": "#FFFFFF",
       "foreground-end": "#FFFFFF",
       "foreground-stop": "30%",
@@ -22,7 +22,7 @@
       "line-opacity": 0.7,
       "background-color": "#141414"
     },
-    "金色": {
+    "rose": {
       "foreground-start": "#FDC9AE",
       "foreground-end": "#F5E3D9",
       "foreground-stop": "30%",
@@ -30,7 +30,7 @@
       "line-opacity": 0.7,
       "background-color": "#1D1D1F"
     },
-    "红色": {
+    "red": {
       "foreground-start": "#FFFFFF",
       "foreground-end": "#FFFFFF",
       "foreground-stop": "30%",
