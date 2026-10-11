@@ -338,28 +338,28 @@ var expand = function (tpl) {
     //   cover   = 不变形、铺满、居中裁切（默认，适合照片/图案）
     //   repeat  = 高度铺满 + 按原比例横向平铺（适合纸纹/布料这类可平铺素材）
     //   stretch = 拉满整条带（素材本身就是按带子比例设计的才用，比如 1px 竖渐变）
-    // 背景图：真机成品走 getRichTextFromHTML + makeImageFromRichText，实测【CSS background-image 会被丢】，
-    // 而 logo 的【内联 SVG】能活 ⇒ 这里用内联 <svg><image href="data:..."> 承载，CSS 保留作桌面兜底。
+    // 背景图：真机成品走 getRichTextFromHTML + makeImageFromRichText，那一趟【没有布局视口】
+    // ⇒ documentElement.clientHeight / getBoundingClientRect 全是 0 ⇒ 任何 100%/inset:0 都会塌成 0 尺寸。
+    // 而 logo 能出图，是因为 buildNode 给它写死了 px。这里照同一配方：根节点与背景层都用显式像素。
     var backgroundImage = (BG_URI && BG_URI.length > 32) ? BG_URI : '';
+    var bandW = (typeof BAND_W === 'number' && BAND_W > 0) ? BAND_W : 0;
+    var bandH = (typeof BAND_H === 'number' && BAND_H > 0) ? BAND_H : 0;
+    if (bandW && bandH) { root.style.width = bandW + 'px'; root.style.height = bandH + 'px'; }
     if (backgroundImage) {
       var bgFit = APP('background-fit', 'cover');
-      var canvasH = document.documentElement.clientHeight || 0;
-      if (canvasH) root.style.height = canvasH + 'px';        // 让 100% 有参照（否则绝对定位层高度塌陷）
-      root.style.position = 'relative';
-      root.style.isolation = 'isolate';                        // z-index:-1 落在"底色之上、内容之下"
       root.style.backgroundImage = 'url(' + backgroundImage + ')';
       root.style.backgroundPosition = 'center';
-      root.style.backgroundRepeat = 'no-repeat';
+      root.style.backgroundRepeat = (bgFit === 'repeat') ? 'repeat-x' : 'no-repeat';
       root.style.backgroundSize = (bgFit === 'stretch') ? '100% 100%' : (bgFit === 'repeat') ? 'auto 100%' : 'cover';
-      if (bgFit === 'repeat') root.style.backgroundRepeat = 'repeat-x';
-      if (bgFit !== 'repeat') {                                // repeat 交给 CSS（SVG 不便于平铺）
+      if (bandW && bandH && bgFit !== 'repeat') {           // 内联 SVG，显式 px + viewBox（和 logo 同一种做法）
         var par = (bgFit === 'stretch') ? 'none' : 'slice';
         root.insertAdjacentHTML('afterbegin',
-          '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ' +
-          'preserveAspectRatio="xMidYMid ' + par + '" ' +
-          'style="position:absolute;left:0;top:0;width:100%;height:100%;z-index:-1">' +
-          '<image width="100%" height="100%" preserveAspectRatio="xMidYMid ' + par + '" ' +
-          'href="' + backgroundImage + '" xlink:href="' + backgroundImage + '"/></svg>');
+          '<svg id="wm-bg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ' +
+          'width="' + bandW + '" height="' + bandH + '" viewBox="0 0 ' + bandW + ' ' + bandH + '" ' +
+          'preserveAspectRatio="xMidYMid ' + par + '">' +
+          '<image x="0" y="0" width="' + bandW + '" height="' + bandH + '" ' +
+          'preserveAspectRatio="xMidYMid ' + par + '" href="' + backgroundImage +
+          '" xlink:href="' + backgroundImage + '"/></svg>');
       }
     }
 

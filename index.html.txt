@@ -6,6 +6,8 @@
 <style id="wm-style">
 html,body{margin:0;padding:0;width:100%;height:100%;background:var(--background-color,#fff);}
 #wm-root{box-sizing:border-box;width:100%;overflow:hidden;}
+#wm-root>*{position:relative;z-index:1;}
+#wm-root>#wm-bg{position:absolute;left:0;top:0;z-index:0;}
 #wm-logo-src{display:none!important;}
 #wm-error{display:none;font:12px/1.4 -apple-system,sans-serif;color:#c00;padding:4px;white-space:pre-wrap;}
 #wm-root .tn{background-image:linear-gradient(var(--foreground-direction),var(--foreground-start) var(--foreground-stop),var(--foreground-end));-webkit-background-clip:text;background-clip:text;color:transparent;}
@@ -21,6 +23,7 @@ var RTV     = { unit:@@UNIT@@, model:"@@MODEL@@", date:"@@TIME@@",
                 focal:"@@FOCAL@@", focalActual:"@@FOCAL_ACTUAL@@",
                 aperture:"@@APERTURE@@", speed:"@@SPEED@@", iso:"@@ISO@@",
                 lat:"@@LAT@@", lon:"@@LON@@" };
+var BAND_W  = @@BAND_W@@, BAND_H = @@BAND_H@@;  // 带子的实际像素尺寸（快捷指令按尺寸链算出）
 var OVERRIDE= @@APPEARANCE_JSON@@;   // 选中样式的 JSON 原文（键同 preset 的 styles）
 var BG_URI   = "@@BACKGROUND_IMAGE@@";  // 背景图 data URI（有图才有）
 @@CORE_JS@@
