@@ -342,7 +342,15 @@ var expand = function (tpl) {
     // 这里只保证尺寸变量可用；不再运行时创建 <style>（V11 也是静态规则 + 值由快捷指令注入）。
     var bandW = (typeof BAND_W === 'number' && BAND_W > 0) ? BAND_W : 0;
     var bandH = (typeof BAND_H === 'number' && BAND_H > 0) ? BAND_H : 0;
+    var backgroundImage = (BG_URI && BG_URI.length > 32) ? BG_URI : '';
     if (bandW && bandH) { root.style.width = bandW + 'px'; root.style.height = bandH + 'px'; }
+
+    // 背景图：值放在 JS 字符串里（BG_URI），再用 setProperty 设成 CSS 变量 ——
+    // 与 iPhone 水印V11 完全同构（themes.bgImage = 'url("data:...")' + root.style.setProperty('--bg-image', …)）。
+    // 不把 data URI 直接写进 CSS 文本：那条 HTML→富文本→图片 转换会丢/截断 CSS 里的长 data URI。
+    if (backgroundImage) {
+      root.style.setProperty('--bg-image', 'url("' + backgroundImage + '")');
+    }
 
     // 3) layout 变体：lat/lon 均非空 ⇒ layout；任一为空 ⇒ layout_loc_off（§5.3）
     var gps = hasGps(), variants = CONFIG.layout_group || [], pick = null;
