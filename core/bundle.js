@@ -338,25 +338,39 @@ var expand = function (tpl) {
     //   cover   = 不变形、铺满、居中裁切（默认，适合照片/图案）
     //   repeat  = 高度铺满 + 按原比例横向平铺（适合纸纹/布料这类可平铺素材）
     //   stretch = 拉满整条带（素材本身就是按带子比例设计的才用，比如 1px 竖渐变）
-    // 背景图：**不用 CSS background-image** —— 成品是 getRichTextFromHTML + makeImageFromRichText
-    // 这条 iOS 管线（见 cherri 219-220），它会丢掉元素上的背景图（尤其 data URI），
-    // 所以改成插入 <img> 走图片通道（logo 就是这么渲染出来的，可靠）。
+    // 背景图三重保底（成品 = getRichTextFromHTML + makeImageFromRichText，实测：
+    //   CSS background-image 丢、<img data:> 也丢，但 logo 的【内联 SVG】能活）：
+    //   a) 给 #wm-root 显式高度 ⇒ 100%/inset:0 才有意义
+    //   b) <img data-URI> 绝对定位铺满
+    //   c) 内联 <svg><image href=data-URI>（与 logo 同一条"内联标记"通道，最可能活）
+    //   d) 仍保留 CSS background-image（桌面浏览器渲染时生效，不影响真机）
     var backgroundImage = (BG_URI && BG_URI.length > 32) ? BG_URI : '';
     if (backgroundImage) {
       var bgFit = APP('background-fit', 'cover');
+      var fitCss = (bgFit === 'stretch') ? '100% 100%' : (bgFit === 'repeat' ? 'auto 100%' : 'cover');
+      var objFit = (bgFit === 'stretch') ? 'fill' : (bgFit === 'repeat' ? 'none' : 'cover');
+      var canvasH = document.documentElement.clientHeight || 0;
+      if (canvasH) root.style.height = canvasH + 'px';
+      root.style.position = 'relative';
+      root.style.backgroundImage = 'url(' + backgroundImage + ')';
+      root.style.backgroundSize = fitCss;
+      root.style.backgroundPosition = 'center';
+      root.style.backgroundRepeat = (bgFit === 'repeat') ? 'repeat-x' : 'no-repeat';
+
       var bgImg = document.createElement('img');
       bgImg.setAttribute('src', backgroundImage);
-      bgImg.style.position = 'absolute';
-      bgImg.style.left = '0';
-      bgImg.style.top = '0';
-      bgImg.style.width = '100%';
-      bgImg.style.height = '100%';
-      bgImg.style.objectFit = (bgFit === 'stretch') ? 'fill' : (bgFit === 'repeat' ? 'none' : 'cover');
-      bgImg.style.objectPosition = 'center';
-      bgImg.style.zIndex = '-1';
-      root.style.position = 'relative';
-      root.style.isolation = 'isolate';     // 形成独立层叠上下文 ⇒ -1 位于"底色之上、内容之下"
+      bgImg.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;' +
+                            'object-fit:' + objFit + ';object-position:center;z-index:-1;';
+      root.style.isolation = 'isolate';
       root.insertBefore(bgImg, root.firstChild);
+
+      var bgSvg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ' +
+                  'style="position:absolute;left:0;top:0;width:100%;height:100%;z-index:-1" ' +
+                  'preserveAspectRatio="xMidYMid ' + (objFit === 'fill' ? 'none' : 'slice') + '">' +
+                  '<image width="100%" height="100%" preserveAspectRatio="xMidYMid ' +
+                  (objFit === 'fill' ? 'none' : 'slice') + '" href="' + backgroundImage +
+                  '" xlink:href="' + backgroundImage + '"/></svg>';
+      root.insertAdjacentHTML('beforeend', bgSvg);
     }
 
     // 3) layout 变体：lat/lon 均非空 ⇒ layout；任一为空 ⇒ layout_loc_off（§5.3）
