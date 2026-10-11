@@ -3,20 +3,9 @@
   "metadata": {
     "id": "leica",
     "designShort": 1080,
-    "bandDp": 159.8,
     "bandDpByVariant": {
       "layout": 159.8,
       "layout_loc_off": 159.0
-    },
-    "designFont": {
-      "ascent": 1.044,
-      "descent": 0.282,
-      "note": "MiSans VF hhea 1044/-282 per 1000upem；行高 = (ascent + descent) × size"
-    },
-    "weightMap": {
-      "note": "MiSans wght → iOS 系统字体(SF Pro)等效字重：按竖笔画中位宽实测对齐（_local/font_study.py）",
-      "451": 550,
-      "501": 620
     }
   },
   "compose": {
