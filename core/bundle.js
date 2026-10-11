@@ -338,21 +338,25 @@ var expand = function (tpl) {
     //   cover   = 不变形、铺满、居中裁切（默认，适合照片/图案）
     //   repeat  = 高度铺满 + 按原比例横向平铺（适合纸纹/布料这类可平铺素材）
     //   stretch = 拉满整条带（素材本身就是按带子比例设计的才用，比如 1px 竖渐变）
-    // 背景图 data URI（preset.styles 的 background-image 只是素材 id）；纯色款读到空素材 ⇒ 空壳 URL，长度兜一层
+    // 背景图：**不用 CSS background-image** —— 成品是 getRichTextFromHTML + makeImageFromRichText
+    // 这条 iOS 管线（见 cherri 219-220），它会丢掉元素上的背景图（尤其 data URI），
+    // 所以改成插入 <img> 走图片通道（logo 就是这么渲染出来的，可靠）。
     var backgroundImage = (BG_URI && BG_URI.length > 32) ? BG_URI : '';
     if (backgroundImage) {
-      root.style.backgroundImage = 'url(' + backgroundImage + ')';
-      root.style.backgroundPosition = 'center';
-      root.style.backgroundRepeat = 'no-repeat';
       var bgFit = APP('background-fit', 'cover');
-      if (bgFit === 'repeat') {
-        root.style.backgroundSize = 'auto 100%';       // 高度铺满 + 按原比例横向平铺
-        root.style.backgroundRepeat = 'repeat-x';
-      } else if (bgFit === 'stretch') {
-        root.style.backgroundSize = '100% 100%';        // 拉满（素材本身就是按带子比例设计的才用）
-      } else {
-        root.style.backgroundSize = 'cover';            // 默认：不变形铺满 + 居中裁切
-      }
+      var bgImg = document.createElement('img');
+      bgImg.setAttribute('src', backgroundImage);
+      bgImg.style.position = 'absolute';
+      bgImg.style.left = '0';
+      bgImg.style.top = '0';
+      bgImg.style.width = '100%';
+      bgImg.style.height = '100%';
+      bgImg.style.objectFit = (bgFit === 'stretch') ? 'fill' : (bgFit === 'repeat' ? 'none' : 'cover');
+      bgImg.style.objectPosition = 'center';
+      bgImg.style.zIndex = '-1';
+      root.style.position = 'relative';
+      root.style.isolation = 'isolate';     // 形成独立层叠上下文 ⇒ -1 位于"底色之上、内容之下"
+      root.insertBefore(bgImg, root.firstChild);
     }
 
     // 3) layout 变体：lat/lon 均非空 ⇒ layout；任一为空 ⇒ layout_loc_off（§5.3）
@@ -370,19 +374,6 @@ var expand = function (tpl) {
     root.setAttribute('data-variant', gps ? 'layout' : 'layout_loc_off');
     // 字体可能晚到（本地对照模式用 @font-face 加载 MiSans）⇒ 就绪后再 fit 一次；
     // fit() 每次从 data-fs 基准量起，幂等，不会把"字体没就绪时"的误判留下
-    // ⚠️ 临时诊断 v2（定位"红色背景图不渲染"；定位完即删）
-    // 1) 把关键量作为文本塞进带内（#wm-root 里）⇒ 一定会出现在成品图上
-    // 2) 若样式声明了 background-image 但注入的 URI 是空壳 ⇒ 把带底涂成亮绿，肉眼可辨
-    var _ap = CONFIG.appearance || {};
-    var _uri = (typeof BG_URI === 'string') ? BG_URI : String(BG_URI);
-    root.insertAdjacentHTML('afterbegin',
-      '<div style="color:#ff00ff;font:700 20px monospace;white-space:pre;line-height:1.2">' +
-      'DIAG uri=' + _uri.length + ' rootH=' + Math.round(root.getBoundingClientRect().height) +
-      ' canvasH=' + Math.round(document.documentElement.clientHeight) +
-      ' bg=' + (_ap['background-image'] || '-') + ' color=' + (_ap['background-color'] || '-') +
-      ' hasImg=' + (!!root.style.backgroundImage) + '</div>');
-    if (_ap['background-image'] && _uri.length < 33) { root.style.backgroundColor = '#00FF00'; }
-
     if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
       document.fonts.ready.then(function () { try { fit(root); } catch (e) {} });
     }
