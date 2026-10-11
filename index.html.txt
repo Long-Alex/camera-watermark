@@ -24,7 +24,8 @@ var RTV     = { unit:@@UNIT@@, model:"@@MODEL@@", date:"@@TIME@@",
 var OVERRIDE= { "foreground-start":"@@FOREGROUND_START@@", "foreground-end":"@@FOREGROUND_END@@",
                 "foreground-stop":"@@FOREGROUND_STOP@@", "foreground-direction":"@@FOREGROUND_DIRECTION@@",
                 "line-opacity":"@@LINE_OPACITY@@",
-                "background-color":"@@BACKGROUND_COLOR@@", "background-image":"@@BACKGROUND_IMAGE@@" };
+                "background-color":"@@BACKGROUND_COLOR@@", "background-image":"@@BACKGROUND_IMAGE@@",
+                "background-fit":"@@BACKGROUND_FIT@@" };
 var ASSETS  = {};
 @@CORE_JS@@
 </script></body></html>

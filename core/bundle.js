@@ -276,7 +276,7 @@ var expand = function (tpl) {
     // 2) 覆盖对象 → 改写 CONFIG.appearance（preset 只存默认值；配色表由快捷指令传入，见 §4.5）
     var ap = CONFIG.appearance = CONFIG.appearance || {};
     var APP_KEYS = ['foreground-start','foreground-end','foreground-stop','foreground-direction',
-                    'line-opacity','background-color','background-image'];
+                    'line-opacity','background-color','background-image','background-fit'];
     for (var a = 0; a < APP_KEYS.length; a++) {
       var k = APP_KEYS[a];
       if (OVERRIDE && OVERRIDE[k] !== '' && OVERRIDE[k] != null) ap[k] = OVERRIDE[k];
@@ -291,13 +291,27 @@ var expand = function (tpl) {
     var root = document.getElementById('wm-root');
     // 背景图：快捷指令注入 data URI（style 里的 background-image = assets/background/<id>.png）；
     // 兼容旧写法：值若是名字则查 ASSETS['background:名字']（见踩坑 §19.10）
+    // 定位/缩放由 style 的 background-fit 决定（缺省 cover）：
+    //   cover   = 不变形、铺满、居中裁切（默认，适合照片/图案）
+    //   repeat  = 高度铺满 + 按原比例横向平铺（适合纸纹/布料这类可平铺素材）
+    //   stretch = 拉满整条带（素材本身就是按带子比例设计的才用，比如 1px 竖渐变）
     var backgroundImage = APP('background-image', '');
     if (backgroundImage) {
       var bgUrl = backgroundImage.indexOf('data:') === 0 ? backgroundImage
                 : (typeof ASSETS !== 'undefined' && ASSETS['background:' + backgroundImage]) || '';
       if (bgUrl) {
         root.style.backgroundImage = 'url(' + bgUrl + ')';
-        root.style.backgroundSize = '100% 100%';
+        root.style.backgroundPosition = 'center';
+        root.style.backgroundRepeat = 'no-repeat';
+        var bgFit = APP('background-fit', 'cover');
+        if (bgFit === 'repeat') {
+          root.style.backgroundSize = 'auto 100%';
+          root.style.backgroundRepeat = 'repeat-x';
+        } else if (bgFit === 'stretch') {
+          root.style.backgroundSize = '100% 100%';
+        } else {
+          root.style.backgroundSize = 'cover';
+        }
       }
     }
 
