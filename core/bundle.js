@@ -370,15 +370,18 @@ var expand = function (tpl) {
     root.setAttribute('data-variant', gps ? 'layout' : 'layout_loc_off');
     // 字体可能晚到（本地对照模式用 @font-face 加载 MiSans）⇒ 就绪后再 fit 一次；
     // fit() 每次从 data-fs 基准量起，幂等，不会把"字体没就绪时"的误判留下
-    // ⚠️ 临时诊断（定位"红色背景图不渲染"用，定位完即删）：
-    // 把关键量打到页面顶部的红字横幅上 ⇒ 手机跑一张图就能读出到底哪一环断了
-    fail('DIAG bgUri=' + (typeof BG_URI === 'string' ? BG_URI.length : String(BG_URI)) +
-         ' rootH=' + Math.round(root.getBoundingClientRect().height) +
-         ' canvasH=' + Math.round(document.documentElement.clientHeight) +
-         ' bgsize=' + (root.style.backgroundSize || '-') +
-         ' bgcolor=' + ((CONFIG.appearance || {})['background-color'] || '-') +
-         ' bgImage=' + ((CONFIG.appearance || {})['background-image'] || '-') +
-         ' hasImg=' + (!!root.style.backgroundImage));
+    // ⚠️ 临时诊断 v2（定位"红色背景图不渲染"；定位完即删）
+    // 1) 把关键量作为文本塞进带内（#wm-root 里）⇒ 一定会出现在成品图上
+    // 2) 若样式声明了 background-image 但注入的 URI 是空壳 ⇒ 把带底涂成亮绿，肉眼可辨
+    var _ap = CONFIG.appearance || {};
+    var _uri = (typeof BG_URI === 'string') ? BG_URI : String(BG_URI);
+    root.insertAdjacentHTML('afterbegin',
+      '<div style="color:#ff00ff;font:700 20px monospace;white-space:pre;line-height:1.2">' +
+      'DIAG uri=' + _uri.length + ' rootH=' + Math.round(root.getBoundingClientRect().height) +
+      ' canvasH=' + Math.round(document.documentElement.clientHeight) +
+      ' bg=' + (_ap['background-image'] || '-') + ' color=' + (_ap['background-color'] || '-') +
+      ' hasImg=' + (!!root.style.backgroundImage) + '</div>');
+    if (_ap['background-image'] && _uri.length < 33) { root.style.backgroundColor = '#00FF00'; }
 
     if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
       document.fonts.ready.then(function () { try { fit(root); } catch (e) {} });
