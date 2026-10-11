@@ -55,3 +55,9 @@ demo_out/
 __pycache__/
 *.pyc
 .DS_Store
+
+# 本地测试用探针快捷指令（不进仓库）
+RedOnlyTest*.shortcut
+WMProbe*.shortcut
+WMRedOnly*
+_probe*.html

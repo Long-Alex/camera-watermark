@@ -342,7 +342,8 @@ var expand = function (tpl) {
     // 这里只保证尺寸变量可用；不再运行时创建 <style>（V11 也是静态规则 + 值由快捷指令注入）。
     var bandW = (typeof BAND_W === 'number' && BAND_W > 0) ? BAND_W : 0;
     var bandH = (typeof BAND_H === 'number' && BAND_H > 0) ? BAND_H : 0;
-    var backgroundImage = (BG_URI && BG_URI.length > 32) ? BG_URI : '';
+    // BG_URI 现在是【纯 base64】（不带 data: 前缀），前缀在这里拼 —— 避开真机上带插值字面量赋值会变空的问题
+    var backgroundImage = (BG_URI && BG_URI.length > 64) ? ('data:image/png;base64,' + BG_URI) : '';
     if (bandW && bandH) { root.style.width = bandW + 'px'; root.style.height = bandH + 'px'; }
 
     // 背景图：值放在 JS 字符串里（BG_URI），再用 setProperty 设成 CSS 变量 ——
