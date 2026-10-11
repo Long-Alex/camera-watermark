@@ -334,7 +334,7 @@ var expand = function (tpl) {
 
     var root = document.getElementById('wm-root');
     // 背景图：快捷指令注入 data URI（style 里的 background-image = assets/background/<id>.png）；
-    // 定位/缩放由 style 的 background-fit 决定（缺省 cover）：
+    // 背景图的缩放/定位：默认由模板静态 CSS 给 cover/center/no-repeat；
     //   cover   = 不变形、铺满、居中裁切（默认，适合照片/图案）
     //   repeat  = 高度铺满 + 按原比例横向平铺（适合纸纹/布料这类可平铺素材）
     //   stretch = 拉满整条带（素材本身就是按带子比例设计的才用，比如 1px 竖渐变）
@@ -343,14 +343,23 @@ var expand = function (tpl) {
     var bandW = (typeof BAND_W === 'number' && BAND_W > 0) ? BAND_W : 0;
     var bandH = (typeof BAND_H === 'number' && BAND_H > 0) ? BAND_H : 0;
     // BG_URI 现在是【纯 base64】（不带 data: 前缀），前缀在这里拼 —— 避开真机上带插值字面量赋值会变空的问题
-    var backgroundImage = (BG_URI && BG_URI.length > 64) ? ('data:image/png;base64,' + BG_URI) : '';
+    // BG_URI 兼容两种传法：纯 base64（真机现在的做法）或完整 data URI（本地校验/历史版本）
+    var bgRaw = BG_URI || '';
+    var backgroundImage = (bgRaw.length > 64)
+      ? (bgRaw.indexOf('data:') === 0 ? bgRaw : ('data:image/png;base64,' + bgRaw))
+      : '';
     if (bandW && bandH) { root.style.width = bandW + 'px'; root.style.height = bandH + 'px'; }
 
     // 背景图：值放在 JS 字符串里（BG_URI），再用 setProperty 设成 CSS 变量 ——
     // 与 iPhone 水印V11 完全同构（themes.bgImage = 'url("data:...")' + root.style.setProperty('--bg-image', …)）。
     // 不把 data URI 直接写进 CSS 文本：那条 HTML→富文本→图片 转换会丢/截断 CSS 里的长 data URI。
     if (backgroundImage) {
-      document.documentElement.style.setProperty('--bg-image', 'url("' + backgroundImage + '")');   // 与 V11 一致：设在 <html> 上，靠继承传给 #wm-root
+      document.documentElement.style.setProperty('--bg-image', 'url("' + backgroundImage + '")');
+      // background-fit 生效：cover（默认）/ stretch / repeat（模板 CSS 里是 cover，这里用内联样式覆盖）
+      var bgFit = APP('background-fit', 'cover');
+      root.style.backgroundSize = (bgFit === 'stretch') ? '100% 100%' : (bgFit === 'repeat') ? 'auto 100%' : 'cover';
+      root.style.backgroundPosition = 'center';
+      root.style.backgroundRepeat = (bgFit === 'repeat') ? 'repeat-x' : 'no-repeat';   // 与 V11 一致：设在 <html> 上，靠继承传给 #wm-root
       // background-size/position/repeat 已写在模板的静态 CSS 里（cover/center/no-repeat，与 V11 一致）
     }
 
