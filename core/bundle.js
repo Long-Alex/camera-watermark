@@ -338,18 +338,29 @@ var expand = function (tpl) {
     //   cover   = 不变形、铺满、居中裁切（默认，适合照片/图案）
     //   repeat  = 高度铺满 + 按原比例横向平铺（适合纸纹/布料这类可平铺素材）
     //   stretch = 拉满整条带（素材本身就是按带子比例设计的才用，比如 1px 竖渐变）
-    // 背景图：就是最简单的 CSS background-image（实测真机这条路是通的 —— 红色一度正常出图）。
-    // 之前那版改成 <img>/内联 SVG 是响应"图没出来"，但事后查明那次是 iCloud 占位文件导致
-    // "未能打开文件 red.png"，不是渲染管线的问题。这里回到简单写法 + 长度兜底。
+    // 背景图：真机成品走 getRichTextFromHTML + makeImageFromRichText，实测【CSS background-image 会被丢】，
+    // 而 logo 的【内联 SVG】能活 ⇒ 这里用内联 <svg><image href="data:..."> 承载，CSS 保留作桌面兜底。
     var backgroundImage = (BG_URI && BG_URI.length > 32) ? BG_URI : '';
     if (backgroundImage) {
       var bgFit = APP('background-fit', 'cover');
+      var canvasH = document.documentElement.clientHeight || 0;
+      if (canvasH) root.style.height = canvasH + 'px';        // 让 100% 有参照（否则绝对定位层高度塌陷）
+      root.style.position = 'relative';
+      root.style.isolation = 'isolate';                        // z-index:-1 落在"底色之上、内容之下"
       root.style.backgroundImage = 'url(' + backgroundImage + ')';
       root.style.backgroundPosition = 'center';
       root.style.backgroundRepeat = 'no-repeat';
-      root.style.backgroundSize = (bgFit === 'stretch') ? '100% 100%'
-                               : (bgFit === 'repeat') ? 'auto 100%' : 'cover';
+      root.style.backgroundSize = (bgFit === 'stretch') ? '100% 100%' : (bgFit === 'repeat') ? 'auto 100%' : 'cover';
       if (bgFit === 'repeat') root.style.backgroundRepeat = 'repeat-x';
+      if (bgFit !== 'repeat') {                                // repeat 交给 CSS（SVG 不便于平铺）
+        var par = (bgFit === 'stretch') ? 'none' : 'slice';
+        root.insertAdjacentHTML('afterbegin',
+          '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ' +
+          'preserveAspectRatio="xMidYMid ' + par + '" ' +
+          'style="position:absolute;left:0;top:0;width:100%;height:100%;z-index:-1">' +
+          '<image width="100%" height="100%" preserveAspectRatio="xMidYMid ' + par + '" ' +
+          'href="' + backgroundImage + '" xlink:href="' + backgroundImage + '"/></svg>');
+      }
     }
 
     // 3) layout 变体：lat/lon 均非空 ⇒ layout；任一为空 ⇒ layout_loc_off（§5.3）

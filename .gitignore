@@ -55,3 +55,4 @@ demo_out/
 __pycache__/
 *.pyc
 .DS_Store
+!/assets/**/*.b64

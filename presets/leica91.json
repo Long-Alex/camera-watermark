@@ -1,0 +1,307 @@
+{
+  "version": "2",
+  "metadata": {
+    "id": "leica91",
+    "designShort": 1080,
+    "bandDpByVariant": {
+      "layout": 162.0,
+      "layout_loc_off": 140
+    }
+  },
+  "type": {
+    "浅色": "light"
+  },
+  "styles": {
+    "light": {
+      "foreground-start": "#FFFFFF",
+      "foreground-end": "#FFFFFF",
+      "foreground-stop": "0%",
+      "foreground-direction": "90deg",
+      "line-opacity": 1,
+      "background-color": "#00FFFFFF"
+    }
+  },
+  "compose": {
+    "mode": "stitch",
+    "stitch": {
+      "direction": "Vertically",
+      "spacing": 0
+    },
+    "overlay": {
+      "anchor": "Bottom Right",
+      "width": 1080,
+      "height": 160,
+      "rotation": 0,
+      "opacityPercent": 100
+    }
+  },
+  "fallback": {
+    "note": "91号水印兜底（来自 leica/91/config.json）",
+    "model": "iPhone 18 Pro Max",
+    "date": "now",
+    "focal": 24,
+    "aperture": 1.8,
+    "speed": 0.0166666667,
+    "iso": 100
+  },
+  "layout_group": [
+    {
+      "layout": [
+        {
+          "type": "row",
+          "id": "bottom_layout",
+          "width": "100%",
+          "height": "auto",
+          "align-items": "center",
+          "padding": {
+            "top": 40,
+            "bottom": 40,
+            "left": 48,
+            "right": 48
+          },
+          "children": [
+            {
+              "type": "column",
+              "id": "left_bottom_layout",
+              "flex": "none",
+              "children": [
+                {
+                  "type": "row",
+                  "id": "brand_row",
+                  "align-items": "center",
+                  "children": [
+                    {
+                      "type": "image",
+                      "id": "logo",
+                      "src": "logo",
+                      "height": 24,
+                      "max-width": 120,
+                      "optional": true
+                    },
+                    {
+                      "type": "text",
+                      "id": "model",
+                      "font": "f1",
+                      "text": "@{model} @{series}@{versionName}",
+                      "margin-left": 8
+                    },
+                    {
+                      "type": "text",
+                      "id": "model_versionName",
+                      "font": "f2",
+                      "text": "@model=@{versionName}",
+                      "margin-left": 4
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "time",
+                  "font": "f3",
+                  "text": "@wm_time_yyyy_MM_dd HH:mm",
+                  "margin-top": 8
+                }
+              ]
+            },
+            {
+              "type": "row",
+              "id": "right_bottom_group",
+              "flex": "1",
+              "min-width": 0,
+              "margin-left": 24,
+              "justify-content": "flex-end",
+              "align-items": "center",
+              "children": [
+                {
+                  "type": "image",
+                  "id": "leica",
+                  "src": "Leica",
+                  "height": 60,
+                  "max-width": 120,
+                  "optional": true
+                },
+                {
+                  "type": "divider",
+                  "id": "line_layout",
+                  "width": 2,
+                  "height": 60,
+                  "margin-left": 24
+                },
+                {
+                  "type": "column",
+                  "id": "exif_location_layout",
+                  "margin-left": 24,
+                  "align-items": "flex-start",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "exif1",
+                      "font": "f3",
+                      "text": "@{focal}mm  ISO @{iso}",
+                      "text-align": "right"
+                    },
+                    {
+                      "type": "text",
+                      "id": "exif2",
+                      "font": "f3",
+                      "text": "f/@{aperture}  @{speed}s",
+                      "text-align": "right",
+                      "margin-top": 2
+                    },
+                    {
+                      "type": "text",
+                      "id": "location",
+                      "font": "f3",
+                      "text": "location_latlng",
+                      "margin-top": 8
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "layout_loc_off": [
+        {
+          "type": "row",
+          "id": "bottom_layout",
+          "width": "100%",
+          "height": "auto",
+          "align-items": "center",
+          "padding": {
+            "top": 40,
+            "bottom": 40,
+            "left": 48,
+            "right": 48
+          },
+          "children": [
+            {
+              "type": "column",
+              "id": "left_bottom_layout",
+              "flex": "none",
+              "children": [
+                {
+                  "type": "row",
+                  "id": "brand_row",
+                  "align-items": "center",
+                  "children": [
+                    {
+                      "type": "image",
+                      "id": "logo",
+                      "src": "logo",
+                      "height": 24,
+                      "max-width": 120,
+                      "optional": true
+                    },
+                    {
+                      "type": "text",
+                      "id": "model",
+                      "font": "f1",
+                      "text": "@{model} @{series}@{versionName}",
+                      "margin-left": 8
+                    },
+                    {
+                      "type": "text",
+                      "id": "model_versionName",
+                      "font": "f2",
+                      "text": "@model=@{versionName}",
+                      "margin-left": 4
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "time",
+                  "font": "f3",
+                  "text": "@wm_time_yyyy_MM_dd HH:mm",
+                  "margin-top": 8
+                }
+              ]
+            },
+            {
+              "type": "row",
+              "id": "right_bottom_group",
+              "flex": "1",
+              "min-width": 0,
+              "margin-left": 24,
+              "justify-content": "flex-end",
+              "align-items": "center",
+              "children": [
+                {
+                  "type": "image",
+                  "id": "leica",
+                  "src": "Leica",
+                  "height": 60,
+                  "max-width": 120,
+                  "optional": true
+                },
+                {
+                  "type": "divider",
+                  "id": "line_layout",
+                  "width": 2,
+                  "height": 60,
+                  "margin-left": 24
+                },
+                {
+                  "type": "column",
+                  "id": "exif_location_layout",
+                  "margin-left": 24,
+                  "align-items": "flex-start",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "exif1",
+                      "font": "f3",
+                      "text": "@{focal}mm  ISO @{iso}",
+                      "text-align": "right"
+                    },
+                    {
+                      "type": "text",
+                      "id": "exif2",
+                      "font": "f3",
+                      "text": "f/@{aperture}  @{speed}s",
+                      "text-align": "right",
+                      "margin-top": 2
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "fonts": {
+    "f1": {
+      "font-family": "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'MiSans VF', sans-serif",
+      "font-size": 21.6,
+      "font-weight": 501,
+      "line-height": 26.0,
+      "letter-spacing": "0em",
+      "design-weight": 501,
+      "opacity": 1
+    },
+    "f2": {
+      "font-family": "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'MiSans VF', sans-serif",
+      "font-size": 13.2,
+      "font-weight": 401,
+      "line-height": 18.0,
+      "letter-spacing": "0.028em",
+      "design-weight": 401,
+      "opacity": 1
+    },
+    "f3": {
+      "font-family": "'MiSans VF', -apple-system, BlinkMacSystemFont, sans-serif",
+      "font-size": 20.0,
+      "font-weight": 401,
+      "line-height": 24.0,
+      "letter-spacing": 0.15,
+      "design-weight": 401,
+      "opacity": 1
+    }
+  }
+}
