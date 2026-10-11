@@ -125,6 +125,10 @@ var buildNode = function (n) {
                   : (parseFloat(inner.getAttribute('width')) > 0 && parseFloat(inner.getAttribute('height')) > 0)
                     ? parseFloat(inner.getAttribute('width')) / parseFloat(inner.getAttribute('height')) : 1;
         var w = h * ratio;
+        // 安全宽度（节点 max-width，dp）：宽标（哈苏 821dp / SONY 363dp / Canon 304dp）不能挤爆行。
+        // 逻辑是高度逻辑的镜像：安全宽度内以高为准；超过就以宽为准，反推高度（保持比例）
+        var maxW = (typeof n['max-width'] === 'number' ? n['max-width'] * CONFIG.unit : 0) || 0;
+        if (maxW > 0 && w > maxW) { w = maxW; h = ratio > 0 ? w / ratio : h; }
         if (h > 0) {
           inner.setAttribute('width', w); inner.setAttribute('height', h);
           inner.style.width = w + 'px'; inner.style.height = h + 'px';
@@ -252,15 +256,50 @@ var expand = function (tpl) {
     var b = document.getElementById('wm-error');
     if (b) { b.style.display = 'block'; b.textContent = 'watermark error: ' + msg; }
   };
-  var fit = function (root) {                 // JS 缩字号防换行（§4.3 前提：文本单行）
+  var fit = function (root) {                 // JS 缩字号：防文本换行 / 防右组被挤到左列上（§4.3 前提：文本单行）
+    var nodes = root.querySelectorAll('.tn');
+    var i, base = [];
+    for (i = 0; i < nodes.length; i++) {      // 每次都从"基准字号"（data-fs）量起：重复调用幂等，
+      base[i] = parseFloat(nodes[i].getAttribute('data-fs')) || 0;   // 不会把上一次（比如字体没就绪时）的误判留下
+      if (base[i]) nodes[i].style.fontSize = base[i] + 'px';
+    }
+    var factor = 1;
     for (var pass = 0; pass < 3; pass++) {
+      var k = 1;
       var sw = root.scrollWidth, cw = root.clientWidth;
-      if (!sw || !cw || sw - cw <= 1) return;
-      var k = cw / sw, nodes = root.querySelectorAll('.tn');
+      if (sw && cw && sw - cw > 1) k = cw / sw;                     // ① 右溢出（内容比行还宽）
+      // ② 左列 + 右组内容 > 行内容区 ⇒ flex-end 会把右组往左推（logo 压到机型文字上、甚至出画布）。
+      //    这种"向左溢出"不会让 scrollWidth 变大，① 抓不到 ⇒ 用两个组的**内容实际范围**量一次。
+      //    只有文字会随字号缩（logo/分隔线/间距是固定 dp），所以一次算出 k = (可用 − 固定部分) / 文字部分
+      var row = root.querySelector('[data-id=bottom_layout]');
+      var lcol = root.querySelector('[data-id=left_bottom_layout]');
+      var rgrp = root.querySelector('[data-id=right_bottom_group]');
+      if (row && lcol && rgrp) {
+        // 只看**可见**子项：没选 logo 时 logo 节点是 display:none，rect 全 0，会把 head.left 当成 0
+        var kids = rgrp.children, head = null, tail = null;
+        for (var ci = 0; ci < kids.length; ci++) {
+          var kb = kids[ci].getBoundingClientRect();
+          if (kb.width <= 0) continue;
+          if (!head) head = kb;
+          tail = kb;
+        }
+        if (head && tail) {
+          var rr = row.getBoundingClientRect(), lr = lcol.getBoundingClientRect();
+          var avail = rr.width - (lr.left - rr.left) - (rr.right - tail.right);
+          var content = lr.width + (tail.right - head.left);
+          if (content > avail + 0.5) {
+            var textPart = lr.width + tail.width;                      // 会随字号缩的部分
+            var fixedPart = content - textPart;                        // logo + 间距（不缩）
+            var kk = textPart > 0 ? (avail - fixedPart) / textPart : 1;
+            k = Math.min(k, Math.max(0.4, kk));
+          }
+        }
+      }
+      if (k >= 0.999) return;
+      factor *= k;
       root.setAttribute('data-fit', '1');
-      for (var i = 0; i < nodes.length; i++) {
-        var base = parseFloat(nodes[i].getAttribute('data-fs'));
-        if (base) nodes[i].style.fontSize = (base * k) + 'px';
+      for (i = 0; i < nodes.length; i++) {
+        if (base[i]) nodes[i].style.fontSize = (base[i] * factor) + 'px';
       }
     }
   };
@@ -328,6 +367,11 @@ var expand = function (tpl) {
     for (var n = 0; n < pick.length; n++) root.appendChild(buildNode(pick[n]));
     fit(root);
     root.setAttribute('data-variant', gps ? 'layout' : 'layout_loc_off');
+    // 字体可能晚到（本地对照模式用 @font-face 加载 MiSans）⇒ 就绪后再 fit 一次；
+    // fit() 每次从 data-fs 基准量起，幂等，不会把"字体没就绪时"的误判留下
+    if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+      document.fonts.ready.then(function () { try { fit(root); } catch (e) {} });
+    }
   } catch (e) {
     fail(e && e.message ? e.message : String(e));
   }

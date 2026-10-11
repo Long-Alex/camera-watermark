@@ -91,6 +91,7 @@
                   "id": "logo",
                   "src": "logo",
                   "height": 64,
+                  "max-width": 320,
                   "optional": true
                 },
                 {
@@ -169,6 +170,7 @@
                   "id": "logo",
                   "src": "logo",
                   "height": 64,
+                  "max-width": 320,
                   "optional": true
                 },
                 {
