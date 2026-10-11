@@ -52,11 +52,11 @@
       "bgColor": "#141414"
     },
     "gold": {
-      "foregroundStart": "#7F591E",
-      "foregroundEnd": "#B69332",
+      "foregroundStart": "#FDC9AE",
+      "foregroundEnd": "#F5E3D9",
       "foregroundStop": "30%",
-      "foregroundDirection": "90deg",
-      "lineOpacity": 0.4,
+      "foregroundDirection": "45deg",
+      "lineOpacity": 0.7,
       "bgColor": "#1D1D1F"
     }
   },
