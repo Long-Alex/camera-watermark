@@ -13,7 +13,7 @@ var EL = function (tag, css, text) {
 };
 var PAD = function (p, side) { return p && p[side] != null ? p[side] : 0; };
 var FONT = function (n) { return n.font ? ((CONFIG.fonts || {})[n.font] || null) : null; };
-// 外观取值：键 = CSS 属性名（preset.appearance 与 styles.json 同一套），运行时已被 OVERRIDE 改写（§4.5）
+// 外观取值：键 = CSS 属性名（= 该 preset 的 styles 那套），运行时已被 OVERRIDE（选中样式）改写（§4.5）
 var APP = function (k, dflt) {
   var a = CONFIG.appearance || {};
   return (a[k] != null && a[k] !== '') ? a[k] : dflt;
@@ -317,7 +317,7 @@ var expand = function (tpl) {
     }
     CONFIG.unit = parseFloat(CONFIG.unit) || 1;
 
-    // 2) 覆盖对象 → 改写 CONFIG.appearance（preset 只存默认值；配色表由快捷指令传入，见 §4.5）
+    // 2) 选中样式（快捷指令从该 preset 的 styles 里挑一款传进来）→ 改写 CONFIG.appearance，见 §4.5
     var ap = CONFIG.appearance = CONFIG.appearance || {};
     var APP_KEYS = ['foreground-start','foreground-end','foreground-stop','foreground-direction',
                     'line-opacity','background-color','background-image','background-fit'];
@@ -338,7 +338,7 @@ var expand = function (tpl) {
     //   cover   = 不变形、铺满、居中裁切（默认，适合照片/图案）
     //   repeat  = 高度铺满 + 按原比例横向平铺（适合纸纹/布料这类可平铺素材）
     //   stretch = 拉满整条带（素材本身就是按带子比例设计的才用，比如 1px 竖渐变）
-    var backgroundImage = BG_URI;   // 背景图 data URI（styles.json 的 background-image 只是素材 id，不是 URI）
+    var backgroundImage = BG_URI;   // 背景图 data URI（preset.styles 的 background-image 只是素材 id，不是 URI）
     if (backgroundImage) {
       root.style.backgroundImage = 'url(' + backgroundImage + ')';
       root.style.backgroundPosition = 'center';

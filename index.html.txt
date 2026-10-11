@@ -21,7 +21,7 @@ var RTV     = { unit:@@UNIT@@, model:"@@MODEL@@", date:"@@TIME@@",
                 focal:"@@FOCAL@@", focalActual:"@@FOCAL_ACTUAL@@",
                 aperture:"@@APERTURE@@", speed:"@@SPEED@@", iso:"@@ISO@@",
                 lat:"@@LAT@@", lon:"@@LON@@" };
-var OVERRIDE= @@APPEARANCE_JSON@@;   // 选中样式的 JSON 原文（键同 styles.json）
+var OVERRIDE= @@APPEARANCE_JSON@@;   // 选中样式的 JSON 原文（键同 preset 的 styles）
 var BG_URI   = "@@BACKGROUND_IMAGE@@";  // 背景图 data URI（有图才有）
 @@CORE_JS@@
 </script></body></html>
