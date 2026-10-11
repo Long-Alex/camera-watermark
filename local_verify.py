@@ -323,8 +323,7 @@ def main():
         rctx = dict(photo_w=case["W"], photo_h=case["H"], model=case["model"], date=case["date"],
                     exif=case.get("exif") or {}, lat=(case["gps"][0] if case.get("gps") else None),
                     lon=(case["gps"][1] if case.get("gps") else None),
-                    fallback=preset.get("fallback"),
-                    modelDefault=(preset.get("metadata") or {}).get("modelDefault"))
+                    fallback=preset.get("fallback"))
         ref_boxes, ref_meta = ref_layout.expected(rctx, variant=variant, logo_id=logo or "Leica")
 
         res = dict(case=case, unit=unit, req_w=req_w, band_h=band_h, band_dp=band_dp, variant=variant,
@@ -528,8 +527,7 @@ def check(res, preset, case):
                                               exif=case.get("exif") or {},
                                               lat=(case["gps"][0] if case.get("gps") else None),
                                               lon=(case["gps"][1] if case.get("gps") else None),
-                                              fallback=preset.get("fallback"),
-                                              modelDefault=(preset.get("metadata") or {}).get("modelDefault")))
+                                              fallback=preset.get("fallback")))
                 for k in ("model", "time", "exif", "location")}
     for k in ("model", "time", "exif", "location"):
         if k in T and T.get(k) != want_txt[k]:

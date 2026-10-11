@@ -154,8 +154,8 @@ for stem, preset in presets.items():
         v = fb.get(k)
         if not (isinstance(v, (int, float)) and v > 0):
             err(f"presets/{stem}.json 缺 fallback.{k}（截图/无 EXIF 的兜底值）")
-    if not (preset.get('metadata') or {}).get('modelDefault'):
-        err(f"presets/{stem}.json 缺 metadata.modelDefault（机型兜底）")
+    if not fb.get('model'):
+        err(f"presets/{stem}.json 缺 fallback.model（机型兜底）")
 
 # 3.3 preset 内素材引用
 for stem, preset in presets.items():

@@ -4,7 +4,6 @@
     "id": "leica",
     "designShort": 1080,
     "bandDp": 159.8,
-    "modelDefault": "iPhone 18 Pro Max",
     "bandDpByVariant": {
       "layout": 159.8,
       "layout_loc_off": 159.0
@@ -35,7 +34,8 @@
     }
   },
   "fallback": {
-    "note": "拍摄参数识别不到时的兜底值（截图/无 EXIF 的图）；机型兜底见 metadata.modelDefault",
+    "note": "识别不到时用的兜底值（截图/无 EXIF/无机型）",
+    "model": "iPhone 18 Pro Max",
     "focal": 24,
     "aperture": 1.8,
     "speed": 0.0166666667,

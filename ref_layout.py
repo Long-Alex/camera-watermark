@@ -93,7 +93,7 @@ def dms(dec, pos, neg):
 
 def text_of(node_id, ctx):
     if node_id == "model":
-        return ctx["model"] or ctx.get("modelDefault") or ""
+        return ctx["model"] or (ctx.get("fallback") or {}).get("model") or ""
     if node_id == "time":
         return fmt_dt(ctx["date"])
     if node_id == "exif":

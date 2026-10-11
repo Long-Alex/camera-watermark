@@ -194,7 +194,7 @@ var fmtSpeed = function (x) {          // <1s ⇒ 1/N；≥1s ⇒ %g（复刻 fm
   if (x >= 1) return String(parseFloat(x.toPrecision(6)));
   return '1/' + Math.round(1 / x);
 };
-// 拍摄参数取值：运行时值 → preset.fallback 兜底 → NaN（截图/无 EXIF 也不会空/出错）
+// 取值链：运行时值 → preset.fallback 兜底 → NaN/空（截图、无 EXIF、无机型都不会空/出错）
 var pickNum = function (k) {
   var n = numValue(CONFIG[k]);
   if (isFinite(n) && n > 0) return n;
@@ -213,7 +213,7 @@ var expand = function (tpl) {
                     isFinite(pickNum('speed')) && isFinite(pickNum('iso')))) return '';
   return tpl.replace(/@\{(\w+)\}/g, function (_, k) {
     switch (k) {
-      case 'model':      return CONFIG.model || (CONFIG.metadata && CONFIG.metadata.modelDefault) || '';
+      case 'model':      return CONFIG.model || (CONFIG.fallback || {}).model || '';
       case 'versionName':return CONFIG.versionName || '';
       case 'focal':      return fmtFixed(pickNum('focal'), 0);
       case 'focalActual':return fmtFixed(numValue(CONFIG.focalActual), 2);
