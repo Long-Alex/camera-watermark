@@ -349,7 +349,7 @@ var expand = function (tpl) {
     // 与 iPhone 水印V11 完全同构（themes.bgImage = 'url("data:...")' + root.style.setProperty('--bg-image', …)）。
     // 不把 data URI 直接写进 CSS 文本：那条 HTML→富文本→图片 转换会丢/截断 CSS 里的长 data URI。
     if (backgroundImage) {
-      root.style.setProperty('--bg-image', 'url("' + backgroundImage + '")');
+      document.documentElement.style.setProperty('--bg-image', 'url("' + backgroundImage + '")');   // 与 V11 一致：设在 <html> 上，靠继承传给 #wm-root
       // 注意：这里【不】设置 background-size/position/repeat —— 最初能出图时就没有它们（background-fit 是后加的）
     }
 
