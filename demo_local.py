@@ -116,7 +116,8 @@ def main():
                     req_w = CAP
                 band_h = round(band_dp * unit)
 
-                case = dict(name=f"demo_{i:02d}", W=W, H=H, model=ex["model"], date=ex["date"],
+                case = dict(name=f"demo_{i:02d}", W=W, H=H, dpr=a.dpr,      # ← 必须传，否则渲染按 1×，成品会糊
+                            model=ex["model"], date=ex["date"],
                             exif=dict(focal=ex["focal"], aperture=ex["aperture"],
                                       speed=ex["speed"], iso=ex["iso"]),
                             gps=(ex["lat"], ex["lon"]) if ex["lat"] is not None else None,
@@ -131,6 +132,9 @@ def main():
                     raise RuntimeError("页面报错: " + rep["err"])
 
                 band = Image.open(shot).convert("RGB")
+                if (band.width, band.height) != (req_w * a.dpr, band_h * a.dpr):
+                    raise RuntimeError(f"渲染位图 {band.size} ≠ reqW×dpr × bandH×dpr "
+                                       f"({req_w*a.dpr}×{band_h*a.dpr})——dpr 没生效，成品会被放大变糊")
                 target_w = a.max_output_width or W
                 scale = target_w / band.width
                 band = band.resize((target_w, max(1, round(band.height * scale))), Image.LANCZOS)
