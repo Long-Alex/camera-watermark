@@ -156,6 +156,8 @@ for stem, preset in presets.items():
             err(f"presets/{stem}.json 缺 fallback.{k}（截图/无 EXIF 的兜底值）")
     if not fb.get('model'):
         err(f"presets/{stem}.json 缺 fallback.model（机型兜底）")
+    if not fb.get('date'):
+        err(f"presets/{stem}.json 缺 fallback.date（拍不到时间时的兜底；\"now\" = 渲染时刻）")
 
 # 3.3 preset 内素材引用
 for stem, preset in presets.items():

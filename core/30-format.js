@@ -10,8 +10,11 @@ var TIME_FMT = {                       // @wm_time_* → SimpleDateFormat 原文
 var WEEK = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 var pad2 = function (x) { return (x < 10 ? '0' : '') + x; };
 var fmtTime = function (iso, pattern) {
-  if (!iso) return '';
-  var d = new Date(iso);
+  var d = iso ? new Date(iso) : null;
+  if (!d || isNaN(d.getTime())) {          // 时间缺失/无效 ⇒ fallback.date（"now" = 渲染时刻）
+    var fb = (CONFIG.fallback || {}).date;
+    d = (fb && fb !== 'now') ? new Date(fb) : new Date();
+  }
   if (isNaN(d.getTime())) return '';
   return pattern.replace(/yyyy/g, d.getFullYear())
                 .replace(/EEEE/g, WEEK[d.getDay()])

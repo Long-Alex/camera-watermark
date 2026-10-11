@@ -95,6 +95,11 @@ def text_of(node_id, ctx):
     if node_id == "model":
         return ctx["model"] or (ctx.get("fallback") or {}).get("model") or ""
     if node_id == "time":
+        if not ctx.get("date"):
+            import datetime as _dt
+            if (ctx.get("fallback") or {}).get("date") == "now":
+                return _dt.datetime.now().strftime("%Y.%m.%d %H:%M")
+            return ""
         return fmt_dt(ctx["date"])
     if node_id == "exif":
         fb = ctx.get("fallback") or {}

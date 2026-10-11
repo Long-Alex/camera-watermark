@@ -34,8 +34,9 @@
     }
   },
   "fallback": {
-    "note": "识别不到时用的兜底值（截图/无 EXIF/无机型）",
+    "note": "识别不到时的兜底值；date 支持 \"now\"（用渲染时刻，截图/无 EXIF 日期时）",
     "model": "iPhone 18 Pro Max",
+    "date": "now",
     "focal": 24,
     "aperture": 1.8,
     "speed": 0.0166666667,

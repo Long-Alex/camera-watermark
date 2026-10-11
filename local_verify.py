@@ -58,6 +58,8 @@ CASES = [
          exif=dict(focal=65, aperture=2.6, speed=1 / 171, iso=50), gps=(39.9056, 116.3914), logo="Leica"),
     dict(name="tiny_320x240", W=320, H=240, model="iPhone 15 Pro", date="2026-01-01T16:26:08",
          exif=dict(focal=65, aperture=2.6, speed=1 / 171, iso=50), gps=(39.9056, 116.3914), logo="Leica"),
+    dict(name="no_date", W=3024, H=4032, model="iPhone 16 Pro", date="",
+         exif=dict(focal=24, aperture=1.78, speed=1 / 120, iso=64), gps=(31.2304, 121.4737), logo="Leica"),
     dict(name="shot_mac_2560x1440", W=2560, H=1440, model="", date="2026-06-14T08:43:00",
          exif=dict(focal=None, aperture=None, speed=None, iso=None), gps=None, logo="Leica"),
     dict(name="shot_iphone_1170x2532", W=1170, H=2532, model="", date="2026-06-14T08:43:00",
@@ -530,13 +532,31 @@ def check(res, preset, case):
                                               fallback=preset.get("fallback")))
                 for k in ("model", "time", "exif", "location")}
     for k in ("model", "time", "exif", "location"):
+        if not case.get("date") and k == "time":
+            continue                       # 时间走 fallback.date=now，见下
         if k in T and T.get(k) != want_txt[k]:
             fails.append(f"{k} 文本 {T.get(k)!r} ≠ 参考 {want_txt[k]!r}")
+    # ⑫b 时间缺失 ⇒ 用渲染时刻（本地与浏览器同一分钟）
+    if not case.get("date"):
+        import datetime as _dt
+        shown = (T.get("time") or T.get("location") or "").strip()
+        if preset.get("fallback", {}).get("date") == "now":
+            try:
+                dd = _dt.datetime.strptime(shown, "%Y.%m.%d %H:%M")
+                if abs((_dt.datetime.now() - dd).total_seconds()) > 120:
+                    fails.append(f"时间缺失时应填当前时间，实际渲染 {shown!r}")
+                res["time_fallback"] = shown
+            except ValueError:
+                fails.append(f"时间缺失时兜底文本不是 yyyy.MM.dd HH:mm：{shown!r}")
+        elif not shown:
+            fails.append("时间缺失且无 fallback.date")
     # ⑬ 与参考模型逐节点对比（字体一致时才有意义：ref 用 MiSans 字形宽）
     if ARGS.font == "misans":
         for k, rb in ref.items():
             if k.startswith("_") or k not in B or k in SKIP_REF:
                 continue
+            if k == "time" and not case.get("date"):
+                continue          # 时间走 fallback.date=now，字符串随时钟变，不做逐节点对照（另有"≈当前时间"断言）
             b = B[k]
             textish = k in ("model", "exif", "location", "time", "left_bottom_group", "left_bottom_layout",
                             "exif_location_layout", "brand_layout", "line_layout")
