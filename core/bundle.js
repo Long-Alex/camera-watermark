@@ -285,7 +285,10 @@ var expand = function (tpl) {
         }
         if (head && tail) {
           var rr = row.getBoundingClientRect(), lr = lcol.getBoundingClientRect();
-          var avail = rr.width - (lr.left - rr.left) - (rr.right - tail.right);
+          // 右组自带 margin-left（机型文字 ↔ 品牌标的最小间隙）⇒ 可用宽度要扣掉它，
+          // 否则 fit 会缩到"刚好塞下"，两段内容贴死（长标时看起来像叠在一起）
+          var gap = parseFloat((window.getComputedStyle ? getComputedStyle(rgrp) : rgrp.style).marginLeft) || 0;
+          var avail = rr.width - (lr.left - rr.left) - (rr.right - tail.right) - gap;
           var content = lr.width + (tail.right - head.left);
           if (content > avail + 0.5) {
             var textPart = lr.width + tail.width;                      // 会随字号缩的部分
