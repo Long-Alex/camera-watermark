@@ -338,29 +338,27 @@ var expand = function (tpl) {
     //   cover   = 不变形、铺满、居中裁切（默认，适合照片/图案）
     //   repeat  = 高度铺满 + 按原比例横向平铺（适合纸纹/布料这类可平铺素材）
     //   stretch = 拉满整条带（素材本身就是按带子比例设计的才用，比如 1px 竖渐变）
-    // 背景图：真机成品走 getRichTextFromHTML + makeImageFromRichText，那一趟【没有布局视口】
-    // ⇒ documentElement.clientHeight / getBoundingClientRect 全是 0 ⇒ 任何 100%/inset:0 都会塌成 0 尺寸。
-    // 而 logo 能出图，是因为 buildNode 给它写死了 px。这里照同一配方：根节点与背景层都用显式像素。
+    // 背景图：照【iPhone 水印V11】的配方 —— 用 <style> 规则 + CSS 变量承载背景图，
+    // 而不是元素内联 style（V11 的 .watermark-container 就是 position:absolute + 显式 px +
+    // background-image:var(--bg-image)，实测能出图；内联 style 里塞 7KB data URI 会被那条转换丢掉）。
+    // 同时严格对齐 V11：容器 position:absolute + width/height 写死像素，不用任何百分比。
     var backgroundImage = (BG_URI && BG_URI.length > 32) ? BG_URI : '';
     var bandW = (typeof BAND_W === 'number' && BAND_W > 0) ? BAND_W : 0;
     var bandH = (typeof BAND_H === 'number' && BAND_H > 0) ? BAND_H : 0;
-    if (bandW && bandH) { root.style.width = bandW + 'px'; root.style.height = bandH + 'px'; }
-    if (backgroundImage) {
+    if (bandW && bandH) {
       var bgFit = APP('background-fit', 'cover');
-      root.style.backgroundImage = 'url(' + backgroundImage + ')';
-      root.style.backgroundPosition = 'center';
-      root.style.backgroundRepeat = (bgFit === 'repeat') ? 'repeat-x' : 'no-repeat';
-      root.style.backgroundSize = (bgFit === 'stretch') ? '100% 100%' : (bgFit === 'repeat') ? 'auto 100%' : 'cover';
-      if (bandW && bandH && bgFit !== 'repeat') {           // 内联 SVG，显式 px + viewBox（和 logo 同一种做法）
-        var par = (bgFit === 'stretch') ? 'none' : 'slice';
-        root.insertAdjacentHTML('afterbegin',
-          '<svg id="wm-bg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ' +
-          'width="' + bandW + '" height="' + bandH + '" viewBox="0 0 ' + bandW + ' ' + bandH + '" ' +
-          'preserveAspectRatio="xMidYMid ' + par + '">' +
-          '<image x="0" y="0" width="' + bandW + '" height="' + bandH + '" ' +
-          'preserveAspectRatio="xMidYMid ' + par + '" href="' + backgroundImage +
-          '" xlink:href="' + backgroundImage + '"/></svg>');
+      var bgSize = (bgFit === 'stretch') ? '100% 100%' : (bgFit === 'repeat') ? 'auto 100%' : 'cover';
+      var bgRep = (bgFit === 'repeat') ? 'repeat-x' : 'no-repeat';
+      var css = '#wm-root{position:absolute;left:0;top:0;width:' + bandW + 'px;height:' + bandH + 'px;';
+      if (backgroundImage) {
+        css += 'background-image:url(' + backgroundImage + ');background-size:' + bgSize +
+               ';background-position:center;background-repeat:' + bgRep + ';';
       }
+      css += '}';
+      var bgStyle = document.createElement('style');
+      bgStyle.setAttribute('id', 'wm-bg-rule');
+      bgStyle.textContent = css;
+      document.head.appendChild(bgStyle);
     }
 
     // 3) layout 变体：lat/lon 均非空 ⇒ layout；任一为空 ⇒ layout_loc_off（§5.3）
