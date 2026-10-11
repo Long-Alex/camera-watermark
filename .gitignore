@@ -1,5 +1,56 @@
-__pycache__/
+# ─────────────────────────────────────────────────────────────────────────────
+# GitHub 上只放「快捷指令运行时需要的载荷」：
+#   manifest.json + index.html.txt + messages.json + styles.json
+#   + presets/*.json + menus/*.vcf + assets/**/*.txt|png + core/bundle.js
+#   + 相机水印.shortcut（安装件，见下方注释）
+# 其余（cherri 源码、校验脚本、文档、logo 源 SVG、测试照片…）全部忽略 ——
+# 忽略 ≠ 删除：本地文件都还在，只是不进 Git。载荷清单见 build.py 的 PAYLOAD。
+# ─────────────────────────────────────────────────────────────────────────────
+/*
+
+# ── 运行时载荷（白名单）────────────────────────────────────────────────────
+!/.gitignore
+!/manifest.json
+!/index.html.txt
+!/messages.json
+!/styles.json
+
+!/presets/
+/presets/*
+!/presets/*.json
+
+!/menus/
+/menus/*
+!/menus/*.vcf
+
+!/assets/
+!/assets/logo/
+/assets/logo/*
+!/assets/logo/*.txt
+!/assets/background/
+/assets/background/*
+!/assets/background/*.png
+
+!/core/
+/core/*
+!/core/bundle.js
+
+# ── 安装件 ─────────────────────────────────────────────────────────────────
+# 签名后的快捷指令本身（不是"开发文件"，而是给手机导入的成品）。
+# 不想让它上 GitHub 的话，删掉下面这行、并 git rm --cached 相机水印.shortcut 即可。
+!/相机水印.shortcut
+
+# ── 开发文件（默认已被 /* 忽略，这里显式列出便于阅读）────────────────────
+*.py
+*.md
+*.cherri
+assets/logo/*.svg
+demo photo/
+local_render.py
+
+# ── 本地产物 ───────────────────────────────────────────────────────────────
 _local/
-.DS_Store
-*.pyc
 demo_out/
+__pycache__/
+*.pyc
+.DS_Store
