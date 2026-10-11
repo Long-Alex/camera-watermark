@@ -1,10 +1,15 @@
 {
-  "version": "91835ac0b301",
-  "messages": "messages.json",
+  "version": "dd0b39ac0094",
   "styles": "styles.json",
   "presets": [
     "leica"
   ],
+  "prompts": {
+    "source": "请选择要添加水印的照片",
+    "preset": "请选择水印款式",
+    "style": "请选择样式",
+    "logo": "请选择品牌图标"
+  },
   "menus": [
     {
       "id": "source",
