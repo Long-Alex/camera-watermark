@@ -36,7 +36,6 @@
       "foreground-stop": "30%",
       "foreground-direction": "90deg",
       "line-opacity": 0.6,
-      "background-color": "#C81E1E",
       "background-image": "red"
     }
   }
