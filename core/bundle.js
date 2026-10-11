@@ -370,6 +370,16 @@ var expand = function (tpl) {
     root.setAttribute('data-variant', gps ? 'layout' : 'layout_loc_off');
     // 字体可能晚到（本地对照模式用 @font-face 加载 MiSans）⇒ 就绪后再 fit 一次；
     // fit() 每次从 data-fs 基准量起，幂等，不会把"字体没就绪时"的误判留下
+    // ⚠️ 临时诊断（定位"红色背景图不渲染"用，定位完即删）：
+    // 把关键量打到页面顶部的红字横幅上 ⇒ 手机跑一张图就能读出到底哪一环断了
+    fail('DIAG bgUri=' + (typeof BG_URI === 'string' ? BG_URI.length : String(BG_URI)) +
+         ' rootH=' + Math.round(root.getBoundingClientRect().height) +
+         ' canvasH=' + Math.round(document.documentElement.clientHeight) +
+         ' bgsize=' + (root.style.backgroundSize || '-') +
+         ' bgcolor=' + ((CONFIG.appearance || {})['background-color'] || '-') +
+         ' bgImage=' + ((CONFIG.appearance || {})['background-image'] || '-') +
+         ' hasImg=' + (!!root.style.backgroundImage));
+
     if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
       document.fonts.ready.then(function () { try { fit(root); } catch (e) {} });
     }
