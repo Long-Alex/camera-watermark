@@ -1,21 +1,25 @@
 <!DOCTYPE html><html><head><meta charset=utf-8>
 <style id="wm-style">
-html,body{margin:0;padding:0;width:100%;}
+html,body{margin:0;padding:0;width:100%;height:100%;background:var(--watermark-bg,#fff);}
 #wm-root{box-sizing:border-box;width:100%;overflow:hidden;}
 #wm-logo-src{display:none!important;}
-#wm-root .tn{background:linear-gradient(var(--foreground-direction),var(--foreground-start) @@FOREGROUND_STOP@@,var(--foreground-end));-webkit-background-clip:text;background-clip:text;color:transparent!important;}
+#wm-error{display:none;font:12px/1.4 -apple-system,sans-serif;color:#c00;padding:4px;white-space:pre-wrap;}
+#wm-root .tn{background-image:linear-gradient(var(--foreground-direction),var(--foreground-start) var(--foreground-stop),var(--foreground-end));-webkit-background-clip:text;background-clip:text;color:transparent;}
 </style>
 </head><body>
 <div id="wm-root"></div>
 <div id="wm-logo-src" style="display:none">@@LOGO@@</div>
-<div id="wm-leica-src" style="display:none">@@LEICA_LOGO@@</div>
+<div id="wm-error"></div>
 <script>
+window.onerror=function(m,s,l){var b=document.getElementById('wm-error');if(b){b.style.display='block';b.textContent='watermark error: '+m+' @'+l;}};
 var CONFIG  = @@CONFIG@@;
 var RTV     = { unit:@@UNIT@@, model:"@@MODEL@@", date:"@@TIME@@",
                 focal:"@@FOCAL@@", focalActual:"@@FOCAL_ACTUAL@@",
                 aperture:"@@APERTURE@@", speed:"@@SPEED@@", iso:"@@ISO@@",
                 lat:"@@LAT@@", lon:"@@LON@@" };
-var OVERRIDE= { foregroundStart:"@@FOREGROUND_START@@", foregroundEnd:"@@FOREGROUND_END@@", foregroundStop:"@@FOREGROUND_STOP@@", foregroundDirection:"@@FOREGROUND_DIRECTION@@",
+var OVERRIDE= { foregroundStart:"@@FOREGROUND_START@@", foregroundEnd:"@@FOREGROUND_END@@",
+                foregroundStop:"@@FOREGROUND_STOP@@", foregroundDirection:"@@FOREGROUND_DIRECTION@@",
                bgColor:"@@BG_COLOR@@", bgImage:"@@BG_IMAGE@@" };
+var ASSETS  = {};
 @@CORE_JS@@
 </script></body></html>

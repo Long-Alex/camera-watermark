@@ -1,25 +1,37 @@
-// 30-format: token 展开（唯一权威表见文档 §5.3）
+// 30-format: token 展开（唯一权威表见文档 §5.3；时间格式表 = 小米 arsc 字符串池）
+var TIME_FMT = {                       // @wm_time_* → SimpleDateFormat 原文
+  wm_time_yyyy_MM_dd_HH_mm: 'yyyy.MM.dd HH:mm',
+  wm_time_yyyy_MM_dd:       'yyyy.MM.dd',
+  wm_time_HH_mm:            'HH:mm',
+  wm_time_MM:               'MM',
+  wm_time_dd:               'dd',
+  wm_time_week:             'EEEE'
+};
+var WEEK = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 var pad2 = function (x) { return (x < 10 ? '0' : '') + x; };
 var fmtTime = function (iso, pattern) {
   if (!iso) return '';
   var d = new Date(iso);
-  return pattern.replace(/yyyy/g, d.getFullYear()).replace(/MM/g, pad2(d.getMonth() + 1))
-                .replace(/dd/g, pad2(d.getDate())).replace(/HH/g, pad2(d.getHours()))
-                .replace(/mm/g, pad2(d.getMinutes())).replace(/ss/g, pad2(d.getSeconds()));
+  if (isNaN(d.getTime())) return '';
+  return pattern.replace(/yyyy/g, d.getFullYear())
+                .replace(/EEEE/g, WEEK[d.getDay()])
+                .replace(/MM/g, pad2(d.getMonth() + 1))
+                .replace(/dd/g, pad2(d.getDate()))
+                .replace(/HH/g, pad2(d.getHours()))
+                .replace(/mm/g, pad2(d.getMinutes()))
+                .replace(/ss/g, pad2(d.getSeconds()));
 };
-var dms = function (v, pos, neg) {
+var dms = function (v, pos, neg) {     // Ci.a.d(): 度分秒整数截断 + 半球后缀
   var hemi = v >= 0 ? pos : neg, a = Math.abs(v);
   var d = Math.floor(a), m = Math.floor((a - d) * 60), s = Math.floor(((a - d) * 60 - m) * 60);
-  var ss = (s < 10 ? '0' : '') + s;
-  return d + '°' + m + "'" + ss + '"' + hemi;
+  return d + '°' + m + "'" + pad2(s) + '"' + hemi;
 };
-var fmtSpeed = function (x) {
-  x = Number(x);
-  if (!x || isNaN(x)) return '';
-  if (x >= 1) return String(Math.round(x * 10) / 10);
-  return '1/' + Math.round(1 / x);
+var hasGps = function () {
+  return CONFIG.lat != null && CONFIG.lat !== '' && CONFIG.lon != null && CONFIG.lon !== '';
 };
-var fmtNum = function (x, dec) { x = Number(x); return (x == null || isNaN(x)) ? '' : String(Number(x.toFixed(dec))); };
+var latlng = function () {             // 单行，纬经之间【两个空格】（模板不拆行）
+  return hasGps() ? (dms(Number(CONFIG.lat), 'N', 'S') + '  ' + dms(Number(CONFIG.lon), 'E', 'W')) : '';
+};
 var numValue = function (x) {
   if (typeof x === 'string' && x.indexOf('/') >= 0) {
     var p = x.split('/'), a = Number(p[0]), b = Number(p[1]);
@@ -28,32 +40,38 @@ var numValue = function (x) {
   var n = Number(x);
   return isFinite(n) ? n : NaN;
 };
+var fmtFixed = function (x, dec) {     // 定点后去尾零（2.6 → "2.6"，2.0 → "2"）
+  x = Number(x);
+  return isFinite(x) ? String(Number(x.toFixed(dec))) : '';
+};
+var fmtSpeed = function (x) {          // <1s ⇒ 1/N；≥1s ⇒ %g（复刻 fmt_speed）
+  x = Number(x);
+  if (!isFinite(x) || x <= 0) return '';
+  if (x >= 1) return String(parseFloat(x.toPrecision(6)));
+  return '1/' + Math.round(1 / x);
+};
+var exifOk = function (k) { var n = numValue(CONFIG[k]); return isFinite(n) && n > 0; };
+
 var expand = function (tpl) {
   if (tpl == null) return '';
-  var m = /@wm_time_(.*)$/.exec(tpl);
-  if (m) return fmtTime(CONFIG.date, m[1]);
-  if (tpl.indexOf('location_latlng') >= 0) {
-    var g = CONFIG.gps || CONFIG;
-    if (g.lat == null || g.lon == null) return '';
-    return dms(g.lat, 'N', 'S') + ' ' + dms(g.lon, 'E', 'W');
-  }
-  var e = CONFIG.exif || CONFIG;   // 扁平键时直接读 CONFIG
-  var fallback = (CONFIG.metadata && CONFIG.metadata.exifFallback) || {};
-  ['focal','aperture','speed','iso'].forEach(function (k) {
-    var n = numValue(e[k]);
-    e[k] = (e[k] == null || e[k] === '' || !isFinite(n) || n <= 0) ? fallback[k] : n;
-  });
+  var m = /@wm_time_(.+)$/.exec(tpl);
+  if (m) return fmtTime(CONFIG.date, TIME_FMT['wm_time_' + m[1]] || m[1]);
+  if (tpl.indexOf('location_latlng') >= 0) return latlng();
+  // E0(): focal/aperture/speed/iso 任一无效 ⇒ 整行隐藏（空文本，仍占一行高）
+  if (/@\{(focal|aperture|speed|iso)\}/.test(tpl) &&
+      !(exifOk('focal') && exifOk('aperture') && exifOk('speed') && exifOk('iso'))) return '';
   return tpl.replace(/@\{(\w+)\}/g, function (_, k) {
     switch (k) {
-      case 'model': case 'versionName': return CONFIG.model || CONFIG.metadata.modelDefault || '';
-      case 'focal': return fmtNum(e.focal, 0);
-      case 'focalActual': return fmtNum(e.focalActual, 2);
-      case 'aperture': return fmtNum(e.aperture, 1);
-      case 'speed': return fmtSpeed(e.speed);
-      case 'iso': return fmtNum(e.iso, 0);
-      case 'cvLens': return CONFIG.lens || '';
-      case 'logo': return '';
-      default: return '';
+      case 'model':      return CONFIG.model || (CONFIG.metadata && CONFIG.metadata.modelDefault) || '';
+      case 'versionName':return CONFIG.versionName || '';
+      case 'focal':      return fmtFixed(CONFIG.focal, 0);
+      case 'focalActual':return fmtFixed(CONFIG.focalActual, 2);
+      case 'aperture':   return fmtFixed(CONFIG.aperture, 1);
+      case 'speed':      return fmtSpeed(CONFIG.speed);
+      case 'iso':        return fmtFixed(CONFIG.iso, 0);
+      case 'cvLens':     return CONFIG.lens || '';
+      case 'logo':       return '';
+      default:           return '';
     }
   });
 };

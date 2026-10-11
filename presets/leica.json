@@ -1,19 +1,23 @@
 {
-  "version": "1",
+  "version": "2",
   "metadata": {
     "id": "leica",
     "designShort": 1080,
     "bandDp": 159.8,
     "modelDefault": "iPhone",
-    "exifFallback": {
-      "focal": 24,
-      "aperture": 1.8,
-      "speed": 0.016666667,
-      "iso": 100
-    },
     "bandDpByVariant": {
       "layout": 159.8,
       "layout_loc_off": 159.0
+    },
+    "designFont": {
+      "ascent": 1.044,
+      "descent": 0.282,
+      "note": "MiSans VF hhea 1044/-282 per 1000upem；行高 = (ascent + descent) × size"
+    },
+    "weightMap": {
+      "note": "MiSans wght → iOS 系统字体(SF Pro)等效字重：按竖笔画中位宽实测对齐（_local/font_study.py）",
+      "451": 550,
+      "501": 620
     }
   },
   "compose": {
@@ -34,25 +38,33 @@
     "light": {
       "foregroundStart": "#000000",
       "foregroundEnd": "#000000",
-      "bgColor": "#FFFFFF",
       "foregroundStop": "30%",
-      "foregroundDirection": "90deg"
+      "foregroundDirection": "90deg",
+      "lineOpacity": 0.3,
+      "bgColor": "#FFFFFF"
     },
     "dark": {
       "foregroundStart": "#FFFFFF",
       "foregroundEnd": "#FFFFFF",
-      "bgColor": "#141414",
       "foregroundStop": "30%",
-      "foregroundDirection": "90deg"
+      "foregroundDirection": "90deg",
+      "lineOpacity": 0.7,
+      "bgColor": "#141414"
     },
     "gold": {
       "foregroundStart": "#7F591E",
       "foregroundEnd": "#B69332",
-      "bgColor": "#1D1D1F",
       "foregroundStop": "30%",
-      "foregroundDirection": "90deg"
+      "foregroundDirection": "90deg",
+      "lineOpacity": 0.4,
+      "bgColor": "#1D1D1F"
     }
   },
+  "styleOrder": [
+    "light",
+    "dark",
+    "gold"
+  ],
   "layout_group": [
     {
       "layout": [
@@ -72,41 +84,27 @@
           "children": [
             {
               "type": "column",
-              "id": "left",
+              "id": "left_bottom_layout",
               "flex": "none",
               "children": [
                 {
-                  "type": "row",
-                  "id": "brand_layout",
-                  "align-items": "center",
-                  "children": [
-                    {
-                      "type": "image",
-                      "id": "logo",
-                      "src": "logo",
-                      "height": 34,
-                      "optional": true
-                    },
-                    {
-                      "type": "text",
-                      "id": "model",
-                      "font": "f1",
-                      "text": " @{model}"
-                    }
-                  ]
+                  "type": "text",
+                  "id": "model",
+                  "font": "f1",
+                  "text": "@{model}"
                 },
                 {
                   "type": "text",
                   "id": "time",
                   "font": "f2",
-                  "text": "@wm_time_yyyy.MM.dd HH:mm",
+                  "text": "@wm_time_yyyy_MM_dd_HH_mm",
                   "margin-top": 10
                 }
               ]
             },
             {
               "type": "row",
-              "id": "right",
+              "id": "right_bottom_group",
               "flex": "1",
               "min-width": 0,
               "justify-content": "flex-end",
@@ -114,21 +112,23 @@
               "children": [
                 {
                   "type": "image",
-                  "id": "leica_logo",
-                  "src": "leica",
-                  "height": 64
+                  "id": "logo",
+                  "src": "logo",
+                  "height": 64,
+                  "optional": true
                 },
                 {
                   "type": "divider",
-                  "id": "sep",
+                  "id": "line_layout",
                   "width": 2,
                   "height": 64,
                   "margin-left": 24
                 },
                 {
                   "type": "column",
-                  "id": "exif_column",
+                  "id": "exif_location_layout",
                   "margin-left": 24,
+                  "align-items": "flex-start",
                   "children": [
                     {
                       "type": "text",
@@ -170,34 +170,20 @@
           "children": [
             {
               "type": "column",
-              "id": "left",
+              "id": "left_bottom_layout",
               "flex": "none",
               "children": [
                 {
-                  "type": "row",
-                  "id": "brand_layout",
-                  "align-items": "center",
-                  "children": [
-                    {
-                      "type": "image",
-                      "id": "logo",
-                      "src": "logo",
-                      "height": 34,
-                      "optional": true
-                    },
-                    {
-                      "type": "text",
-                      "id": "model",
-                      "font": "f1",
-                      "text": " @{model}"
-                    }
-                  ]
+                  "type": "text",
+                  "id": "model",
+                  "font": "f1",
+                  "text": "@{model}"
                 }
               ]
             },
             {
               "type": "row",
-              "id": "right",
+              "id": "right_bottom_group",
               "flex": "1",
               "min-width": 0,
               "justify-content": "flex-end",
@@ -205,21 +191,23 @@
               "children": [
                 {
                   "type": "image",
-                  "id": "leica_logo",
-                  "src": "leica",
-                  "height": 64
+                  "id": "logo",
+                  "src": "logo",
+                  "height": 64,
+                  "optional": true
                 },
                 {
                   "type": "divider",
-                  "id": "sep",
+                  "id": "line_layout",
                   "width": 2,
                   "height": 64,
                   "margin-left": 24
                 },
                 {
                   "type": "column",
-                  "id": "exif_column",
+                  "id": "exif_location_layout",
                   "margin-left": 24,
+                  "align-items": "flex-start",
                   "children": [
                     {
                       "type": "text",
@@ -232,7 +220,7 @@
                       "type": "text",
                       "id": "time",
                       "font": "f2",
-                      "text": "@wm_time_yyyy.MM.dd HH:mm",
+                      "text": "@wm_time_yyyy_MM_dd_HH_mm",
                       "margin-top": 10
                     }
                   ]
@@ -247,27 +235,26 @@
   "fonts": {
     "f1": {
       "font-size": 30.6,
-      "font-weight": 501,
+      "font-weight": 620,
       "line-height": 40.6,
-      "font-family": "-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang SC',sans-serif"
+      "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
+      "design-weight": 501
     },
     "f2": {
       "font-size": 22,
-      "font-weight": 451,
+      "font-weight": 550,
       "line-height": 29.2,
       "letter-spacing": "0.083em",
-      "font-family": "-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang SC',sans-serif"
+      "opacity": 0.5,
+      "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
+      "design-weight": 451
     },
     "f3": {
       "font-size": 30,
-      "font-weight": 501,
+      "font-weight": 620,
       "line-height": 39.8,
-      "font-family": "-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang SC',sans-serif"
+      "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
+      "design-weight": 501
     }
-  },
-  "styleOrder": [
-    "light",
-    "dark",
-    "gold"
-  ]
+  }
 }

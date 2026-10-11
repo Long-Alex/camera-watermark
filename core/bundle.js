@@ -1,5 +1,7 @@
-// 00-util: 基础工具
-var DP = function (v) {                       // dp 数字 → pt 字符串；带单位/字符串原样
+// 00-util: 基础工具（单位换算 / DOM / 取值）
+// 单位链：unit = min(照片宽,照片高) / dpr / designShort（快捷指令算好写进 RUNTIME.unit）
+// WebView 里 1 CSS px = 1 pt ⇒ dp × unit = px
+var DP = function (v) {                       // dp 数值 → px；带单位字符串（"100%" / "0.083em"）原样
   if (typeof v === 'number') return (v * CONFIG.unit) + 'px';
   return v;
 };
@@ -10,117 +12,164 @@ var EL = function (tag, css, text) {
   return e;
 };
 var PAD = function (p, side) { return p && p[side] != null ? p[side] : 0; };
+var FONT = function (n) { return n.font ? ((CONFIG.fonts || {})[n.font] || null) : null; };
 
-// 10-style: layout 节点 → CSS 样式对象（字段名即 CSS 属性名，纯数字=dp）
-var LAYOUT_PROPS = ['width','height','margin-top','margin-bottom','margin-left','margin-right',
+// 10-style: layout 节点 → CSS 样式对象（字段名即 CSS 属性名，纯数字 = dp）
+// 对照 p880yu：水平容器 Σ(子宽+margin_left) / 高 = max(子高+margin_top)；垂直容器反过来。
+var LAYOUT_PROPS = ['width','height','min-width','max-width','margin-top','margin-bottom','margin-left','margin-right',
                     'padding-top','padding-bottom','padding-left','padding-right',
-                    'min-width','text-align','background-color','justify-content','align-items','flex-direction','flex'];
+                    'background-color','justify-content','align-items','align-self','flex-direction','flex','opacity'];
+var LEN_PROP = /^(margin-|padding-|width$|height$|min-width$|max-width$)/;
 var nodeStyle = function (n, font) {
   var css = { boxSizing: 'border-box' };
   LAYOUT_PROPS.forEach(function (p) {
-    if (n[p] != null) css[p] = (/^(margin|padding)/.test(p) || p === 'width' || p === 'height' || p === 'min-width') ? DP(n[p]) : n[p];
+    if (n[p] != null) css[p] = LEN_PROP.test(p) ? DP(n[p]) : n[p];
   });
   if (n.padding) {
-    css['padding-top'] = DP(PAD(n.padding,'top')); css['padding-bottom'] = DP(PAD(n.padding,'bottom'));
-    css['padding-left'] = DP(PAD(n.padding,'left')); css['padding-right'] = DP(PAD(n.padding,'right'));
+    css['padding-top']    = DP(PAD(n.padding, 'top'));
+    css['padding-bottom'] = DP(PAD(n.padding, 'bottom'));
+    css['padding-left']   = DP(PAD(n.padding, 'left'));
+    css['padding-right']  = DP(PAD(n.padding, 'right'));
   }
+  if (n.flex == null) css['flex-shrink'] = 0;      // 引擎不压缩固定尺寸子项（分隔线 2dp 不能被挤掉）
   var t = n.type;
-  if (t === 'row')    css.display = 'flex', css['flex-direction'] = 'row';
-  if (t === 'column') css.display = 'flex', css['flex-direction'] = 'column', css['align-items'] = css['align-items'] || 'flex-start';
+  if (t === 'row')    { css.display = 'flex'; css['flex-direction'] = 'row'; }
+  if (t === 'column') { css.display = 'flex'; css['flex-direction'] = 'column'; css['align-items'] = css['align-items'] || 'flex-start'; }
   if (t === 'text' && font) {
-    css['font-family']    = font['font-family'];
-    css['font-size']      = DP(font['font-size']);
-    css['font-weight']    = font['font-weight'];
-    css['line-height']    = DP(font['line-height']);
-    if (font.color) css.color = font.color;
-    if (font['letter-spacing']) css['letter-spacing'] = font['letter-spacing'];
-    css['white-space']    = 'pre';
-    if (n['text-align'] === 'right') css['align-self'] = 'flex-end';
+    css['font-family'] = font['font-family'];
+    css['font-size']   = DP(font['font-size']);        // px = size(dp) × scale（b.f()）
+    css['line-height'] = DP(font['line-height']);      // = (descent − ascent) × size（MiSans hhea）
+    css['min-height']  = DP(font['line-height']);      // 空文本视图仍占一行高（b.f() 不跳过）
+    css['font-weight'] = font['font-weight'];
+    css['white-space'] = 'pre';                        // EXIF/经纬度双空格 + 绝不换行
+    css['word-break']  = 'keep-all';
+    if (font.opacity != null) css.opacity = font.opacity;               // @foreground=2 ⇒ 50%
+    if (font['letter-spacing']) css['letter-spacing'] = font['letter-spacing'];  // em ⇒ 随字号缩放
+    if (n['text-align'] === 'right') css['align-self'] = 'flex-end';   // layout_gravity=right
   }
-  if (n.css) (n.css || '').split(';').forEach(function (kv) {
+  if (n.css) (n.css || '').split(';').forEach(function (kv) {          // 逃生舱：节点级 css 最后写入
     var i = kv.indexOf(':'); if (i > 0) css[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
   });
   return css;
 };
 
 // 20-build: layout 树 → DOM
+// 图片：内联 SVG（只有内联才吃得到模板 CSS/渐变，见踩坑 §4.5）；
+//       纯色标（fill=currentColor / 无 fill）走样式渐变，品牌色标（Leica/Nikon/ZEISS）保留自带填色。
+var SVG_GRADIENT_ID = 'wm-fg-gradient';
+var GRADIENT_SHAPES = 'path,rect,circle,ellipse,polygon,polyline,use,line';
+var wantsPaint = function (v) { return v == null || v === '' || v === 'currentColor'; };
+
+var paintGradient = function (svg) {
+  var ns = 'http://www.w3.org/2000/svg';
+  var defs = document.createElementNS(ns, 'defs');
+  var g = document.createElementNS(ns, 'linearGradient');
+  var angle = (parseFloat(OVERRIDE.foregroundDirection) - 90) * Math.PI / 180;
+  var dx = Math.cos(angle), dy = Math.sin(angle);
+  g.setAttribute('id', SVG_GRADIENT_ID);
+  g.setAttribute('x1', (50 - dx * 50) + '%'); g.setAttribute('y1', (50 - dy * 50) + '%');
+  g.setAttribute('x2', (50 + dx * 50) + '%'); g.setAttribute('y2', (50 + dy * 50) + '%');
+  [[OVERRIDE.foregroundStop, OVERRIDE.foregroundStart], ['100%', OVERRIDE.foregroundEnd]]
+    .forEach(function (st) {
+      var s = document.createElementNS(ns, 'stop');
+      s.setAttribute('offset', st[0]); s.setAttribute('stop-color', st[1]);
+      g.appendChild(s);
+    });
+  defs.appendChild(g);
+  svg.insertBefore(defs, svg.firstChild);
+  var shapes = svg.querySelectorAll(GRADIENT_SHAPES);
+  for (var i = 0; i < shapes.length; i++) {
+    if (wantsPaint(shapes[i].getAttribute('fill'))) shapes[i].setAttribute('fill', 'url(#' + SVG_GRADIENT_ID + ')');
+    if (wantsPaint(shapes[i].getAttribute('stroke'))) shapes[i].setAttribute('stroke', 'url(#' + SVG_GRADIENT_ID + ')');
+  }
+};
+
 var buildNode = function (n) {
-  var font = n.font ? CONFIG.fonts[n.font] : null;
+  var font = FONT(n);
   var css  = nodeStyle(n, font);
   var t = n.type;
 
-  if (t === 'divider') {
+  if (t === 'divider') {                                  // 2dp × 64dp 色块（@foreground=1）
     var d = EL('div', css);
-    d.style.backgroundImage = 'linear-gradient(' + OVERRIDE.foregroundDirection + ',var(--foreground-start) ' + OVERRIDE.foregroundStop + ',var(--foreground-end))';
+    d.style.backgroundImage = 'linear-gradient(' + OVERRIDE.foregroundDirection + ',var(--foreground-start) ' +
+                              OVERRIDE.foregroundStop + ',var(--foreground-end))';
+    if (css.opacity == null) d.style.opacity = OVERRIDE.lineOpacity;
+    d.setAttribute('data-id', n.id);
     return d;
   }
+
   if (t === 'image') {
-    var box = EL('div', css); box.style.display = 'flex';
-    var sourceId = n.src === 'leica' ? 'wm-leica-src' : 'wm-logo-src';
-    var src = document.getElementById(sourceId);
+    var box = EL('div', css);
+    box.style.display = 'flex';
+    box.style.alignItems = 'center';
+    box.setAttribute('data-id', n.id);
+    var src = document.getElementById('wm-logo-src');
     var svg = src ? src.innerHTML : '';
     if (svg) {
-      box.innerHTML = svg;                           // SVG 内联（currentColor 跟随 css.color）
-      var inner = box.querySelector('svg');           // 让 SVG 撑满容器（否则被自身 width/height 框死）
+      box.innerHTML = svg;                                // 内联 SVG
+      var inner = box.querySelector('svg');
       if (inner) {
-        inner.style.height = '100%'; inner.style.width = 'auto'; inner.setAttribute('height', '100%');
-        var ns = 'http://www.w3.org/2000/svg', defs = document.createElementNS(ns, 'defs');
-        var gradient = document.createElementNS(ns, 'linearGradient');
-        var angle = (parseFloat(OVERRIDE.foregroundDirection) - 90) * Math.PI / 180;
-        var dx = Math.cos(angle), dy = Math.sin(angle);
-        gradient.setAttribute('id', 'cw-logo-gradient'); gradient.setAttribute('x1', (50 - dx * 50) + '%');
-        gradient.setAttribute('y1', (50 - dy * 50) + '%'); gradient.setAttribute('x2', (50 + dx * 50) + '%'); gradient.setAttribute('y2', (50 + dy * 50) + '%');
-        [[OVERRIDE.foregroundStop, OVERRIDE.foregroundStart], ['100%', OVERRIDE.foregroundEnd]].forEach(function (stop) {
-          var s = document.createElementNS(ns, 'stop'); s.setAttribute('offset', stop[0]); s.setAttribute('stop-color', stop[1]); gradient.appendChild(s);
-        });
-        defs.appendChild(gradient); inner.insertBefore(defs, inner.firstChild);
-        inner.querySelectorAll('path,rect,circle,ellipse,polygon,polyline,use').forEach(function (shape) {
-          var fill = shape.getAttribute('fill');
-          if (fill !== 'none') shape.setAttribute('fill', 'url(#cw-logo-gradient)');
-          var stroke = shape.getAttribute('stroke');
-          if (stroke && stroke !== 'none') shape.setAttribute('stroke', 'url(#cw-logo-gradient)');
-        });
+        inner.style.height = '100%'; inner.style.width = 'auto';
+        inner.setAttribute('height', '100%'); inner.removeAttribute('width');
+        if (!inner.getAttribute('viewBox') && !(inner.getAttribute('width') && inner.getAttribute('height'))) {
+          box.style.width = DP(n.height || 0);            // 无 viewBox 的兜底：方形盒
+        }
+        paintGradient(inner);
       }
-      box.style.alignItems = 'center';
     }
-    if (n.optional && !svg) box.style.display = 'none';
+    if (n.optional && !svg) box.style.display = 'none';   // 素材缺失 ⇒ 视图不渲染
     return box;
   }
+
   if (t === 'text') {
     var txt = expand(n.text);
-    if (n.optional && !txt) { var h = EL('div'); h.style.display = 'none'; return h; }
-    var e = EL('div', css, txt);
+    var e = EL('div', css, txt || '');
     e.className = 'tn';
+    e.setAttribute('data-id', n.id);
+    e.setAttribute('data-fs', DP(font ? font['font-size'] : 0));
     return e;
   }
-  // row / column
-  var root = EL('div', css);
-  (n.children || []).forEach(function (c) { root.appendChild(buildNode(c)); });
-  return root;
+
+  var row = EL('div', css);                               // row / column
+  row.setAttribute('data-id', n.id);
+  (n.children || []).forEach(function (c) { row.appendChild(buildNode(c)); });
+  return row;
 };
 
-// 30-format: token 展开（唯一权威表见文档 §5.3）
+// 30-format: token 展开（唯一权威表见文档 §5.3；时间格式表 = 小米 arsc 字符串池）
+var TIME_FMT = {                       // @wm_time_* → SimpleDateFormat 原文
+  wm_time_yyyy_MM_dd_HH_mm: 'yyyy.MM.dd HH:mm',
+  wm_time_yyyy_MM_dd:       'yyyy.MM.dd',
+  wm_time_HH_mm:            'HH:mm',
+  wm_time_MM:               'MM',
+  wm_time_dd:               'dd',
+  wm_time_week:             'EEEE'
+};
+var WEEK = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 var pad2 = function (x) { return (x < 10 ? '0' : '') + x; };
 var fmtTime = function (iso, pattern) {
   if (!iso) return '';
   var d = new Date(iso);
-  return pattern.replace(/yyyy/g, d.getFullYear()).replace(/MM/g, pad2(d.getMonth() + 1))
-                .replace(/dd/g, pad2(d.getDate())).replace(/HH/g, pad2(d.getHours()))
-                .replace(/mm/g, pad2(d.getMinutes())).replace(/ss/g, pad2(d.getSeconds()));
+  if (isNaN(d.getTime())) return '';
+  return pattern.replace(/yyyy/g, d.getFullYear())
+                .replace(/EEEE/g, WEEK[d.getDay()])
+                .replace(/MM/g, pad2(d.getMonth() + 1))
+                .replace(/dd/g, pad2(d.getDate()))
+                .replace(/HH/g, pad2(d.getHours()))
+                .replace(/mm/g, pad2(d.getMinutes()))
+                .replace(/ss/g, pad2(d.getSeconds()));
 };
-var dms = function (v, pos, neg) {
+var dms = function (v, pos, neg) {     // Ci.a.d(): 度分秒整数截断 + 半球后缀
   var hemi = v >= 0 ? pos : neg, a = Math.abs(v);
   var d = Math.floor(a), m = Math.floor((a - d) * 60), s = Math.floor(((a - d) * 60 - m) * 60);
-  var ss = (s < 10 ? '0' : '') + s;
-  return d + '°' + m + "'" + ss + '"' + hemi;
+  return d + '°' + m + "'" + pad2(s) + '"' + hemi;
 };
-var fmtSpeed = function (x) {
-  x = Number(x);
-  if (!x || isNaN(x)) return '';
-  if (x >= 1) return String(Math.round(x * 10) / 10);
-  return '1/' + Math.round(1 / x);
+var hasGps = function () {
+  return CONFIG.lat != null && CONFIG.lat !== '' && CONFIG.lon != null && CONFIG.lon !== '';
 };
-var fmtNum = function (x, dec) { x = Number(x); return (x == null || isNaN(x)) ? '' : String(Number(x.toFixed(dec))); };
+var latlng = function () {             // 单行，纬经之间【两个空格】（模板不拆行）
+  return hasGps() ? (dms(Number(CONFIG.lat), 'N', 'S') + '  ' + dms(Number(CONFIG.lon), 'E', 'W')) : '';
+};
 var numValue = function (x) {
   if (typeof x === 'string' && x.indexOf('/') >= 0) {
     var p = x.split('/'), a = Number(p[0]), b = Number(p[1]);
@@ -129,64 +178,96 @@ var numValue = function (x) {
   var n = Number(x);
   return isFinite(n) ? n : NaN;
 };
+var fmtFixed = function (x, dec) {     // 定点后去尾零（2.6 → "2.6"，2.0 → "2"）
+  x = Number(x);
+  return isFinite(x) ? String(Number(x.toFixed(dec))) : '';
+};
+var fmtSpeed = function (x) {          // <1s ⇒ 1/N；≥1s ⇒ %g（复刻 fmt_speed）
+  x = Number(x);
+  if (!isFinite(x) || x <= 0) return '';
+  if (x >= 1) return String(parseFloat(x.toPrecision(6)));
+  return '1/' + Math.round(1 / x);
+};
+var exifOk = function (k) { var n = numValue(CONFIG[k]); return isFinite(n) && n > 0; };
+
 var expand = function (tpl) {
   if (tpl == null) return '';
-  var m = /@wm_time_(.*)$/.exec(tpl);
-  if (m) return fmtTime(CONFIG.date, m[1]);
-  if (tpl.indexOf('location_latlng') >= 0) {
-    var g = CONFIG.gps || CONFIG;
-    if (g.lat == null || g.lon == null) return '';
-    return dms(g.lat, 'N', 'S') + ' ' + dms(g.lon, 'E', 'W');
-  }
-  var e = CONFIG.exif || CONFIG;   // 扁平键时直接读 CONFIG
-  var fallback = (CONFIG.metadata && CONFIG.metadata.exifFallback) || {};
-  ['focal','aperture','speed','iso'].forEach(function (k) {
-    var n = numValue(e[k]);
-    e[k] = (e[k] == null || e[k] === '' || !isFinite(n) || n <= 0) ? fallback[k] : n;
-  });
+  var m = /@wm_time_(.+)$/.exec(tpl);
+  if (m) return fmtTime(CONFIG.date, TIME_FMT['wm_time_' + m[1]] || m[1]);
+  if (tpl.indexOf('location_latlng') >= 0) return latlng();
+  // E0(): focal/aperture/speed/iso 任一无效 ⇒ 整行隐藏（空文本，仍占一行高）
+  if (/@\{(focal|aperture|speed|iso)\}/.test(tpl) &&
+      !(exifOk('focal') && exifOk('aperture') && exifOk('speed') && exifOk('iso'))) return '';
   return tpl.replace(/@\{(\w+)\}/g, function (_, k) {
     switch (k) {
-      case 'model': case 'versionName': return CONFIG.model || CONFIG.metadata.modelDefault || '';
-      case 'focal': return fmtNum(e.focal, 0);
-      case 'focalActual': return fmtNum(e.focalActual, 2);
-      case 'aperture': return fmtNum(e.aperture, 1);
-      case 'speed': return fmtSpeed(e.speed);
-      case 'iso': return fmtNum(e.iso, 0);
-      case 'cvLens': return CONFIG.lens || '';
-      case 'logo': return '';
-      default: return '';
+      case 'model':      return CONFIG.model || (CONFIG.metadata && CONFIG.metadata.modelDefault) || '';
+      case 'versionName':return CONFIG.versionName || '';
+      case 'focal':      return fmtFixed(CONFIG.focal, 0);
+      case 'focalActual':return fmtFixed(CONFIG.focalActual, 2);
+      case 'aperture':   return fmtFixed(CONFIG.aperture, 1);
+      case 'speed':      return fmtSpeed(CONFIG.speed);
+      case 'iso':        return fmtFixed(CONFIG.iso, 0);
+      case 'cvLens':     return CONFIG.lens || '';
+      case 'logo':       return '';
+      default:           return '';
     }
   });
 };
 
-// 90-boot: 入口
-(function () { try {
-  // 运行时值合并进 CONFIG（扁平注入, V19 同款）
-  ['unit','model','date','focal','focalActual','aperture','speed','iso','lat','lon'].forEach(function(k){
-    if (RTV && RTV[k] !== '' && RTV[k] != null) CONFIG[k] = RTV[k];
-  });
-  if (typeof CONFIG.unit === 'string') CONFIG.unit = parseFloat(CONFIG.unit);
-  var g = CONFIG.gps || CONFIG;
-  var hasGps = g.lat != null && g.lon != null;
-  var variants = CONFIG.layout_group || [];
-  var pick = null;
-  for (var i = 0; i < variants.length; i++) {
-    var v = variants[i], name = Object.keys(v)[0];
-    if (name === 'layout' ? hasGps : !hasGps) { pick = v[name]; break; }
-  }
-  if (!pick) pick = variants.length ? variants[variants.length - 1][Object.keys(variants[variants.length - 1])[0]] : [];
+// 90-boot: 入口 —— RUNTIME → CONFIG → 选 layout 变体 → CSS 变量 → 建 DOM → 防溢出
+(function () {
+  var fail = function (msg) {
+    var b = document.getElementById('wm-error');
+    if (b) { b.style.display = 'block'; b.textContent = 'watermark error: ' + msg; }
+  };
+  var fit = function (root) {                 // JS 缩字号防换行（§4.3 前提：文本单行）
+    for (var pass = 0; pass < 3; pass++) {
+      var sw = root.scrollWidth, cw = root.clientWidth;
+      if (!sw || !cw || sw - cw <= 1) return;
+      var k = cw / sw, nodes = root.querySelectorAll('.tn');
+      for (var i = 0; i < nodes.length; i++) {
+        var base = parseFloat(nodes[i].getAttribute('data-fs'));
+        if (base) nodes[i].style.fontSize = (base * k) + 'px';
+      }
+    }
+  };
+  try {
+    // 1) 运行时值合并进 CONFIG（扁平注入，见踩坑 §18.3）
+    var keys = ['unit','model','versionName','date','focal','focalActual','aperture','speed','iso','lat','lon','lens'];
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (RTV && RTV[k] !== '' && RTV[k] != null) CONFIG[k] = RTV[k];
+    }
+    CONFIG.unit = parseFloat(CONFIG.unit) || 1;
 
-  var root = document.getElementById('wm-root');
-  root.style.width = '100%';
-  root.style.setProperty('--watermark-bg', OVERRIDE.bgColor);
-  document.body.style.setProperty('--foreground-start', OVERRIDE.foregroundStart);
-  document.body.style.setProperty('--foreground-end', OVERRIDE.foregroundEnd);
-  document.body.style.setProperty('--foreground-direction', OVERRIDE.foregroundDirection);
-  var bgKey = 'background:' + (OVERRIDE.bgImage || '');
-  if (OVERRIDE.bgImage && ASSETS[bgKey]) {
-    root.style.backgroundImage = 'url(' + ASSETS[bgKey] + ')';
-    root.style.backgroundSize = '100% 100%';
+    // 2) 主题变量（§4.5 覆盖对象）
+    var st = document.documentElement.style;
+    st.setProperty('--watermark-bg', OVERRIDE.bgColor || '#FFFFFF');
+    st.setProperty('--foreground-start', OVERRIDE.foregroundStart || '#000000');
+    st.setProperty('--foreground-end', OVERRIDE.foregroundEnd || OVERRIDE.foregroundStart || '#000000');
+    st.setProperty('--foreground-stop', OVERRIDE.foregroundStop || '0%');
+    st.setProperty('--foreground-direction', OVERRIDE.foregroundDirection || '90deg');
+
+    var root = document.getElementById('wm-root');
+    if (OVERRIDE.bgImage && typeof ASSETS !== 'undefined' && ASSETS['background:' + OVERRIDE.bgImage]) {
+      root.style.backgroundImage = 'url(' + ASSETS['background:' + OVERRIDE.bgImage] + ')';
+      root.style.backgroundSize = '100% 100%';
+    }
+
+    // 3) layout 变体：lat/lon 均非空 ⇒ layout；任一为空 ⇒ layout_loc_off（§5.3）
+    var gps = hasGps(), variants = CONFIG.layout_group || [], pick = null;
+    for (var v = 0; v < variants.length; v++) {
+      var name = Object.keys(variants[v])[0];
+      if (name === (gps ? 'layout' : 'layout_loc_off')) { pick = variants[v][name]; break; }
+    }
+    if (!pick && variants.length) pick = variants[variants.length - 1][Object.keys(variants[variants.length - 1])[0]];
+    if (!pick) throw new Error('layout_group 为空');
+
+    // 4) 建 DOM + 防溢出
+    for (var n = 0; n < pick.length; n++) root.appendChild(buildNode(pick[n]));
+    fit(root);
+    root.setAttribute('data-variant', gps ? 'layout' : 'layout_loc_off');
+  } catch (e) {
+    fail(e && e.message ? e.message : String(e));
   }
-  pick.forEach(function (n) { root.appendChild(buildNode(n)); });
-  } catch (e) {}
 })();
