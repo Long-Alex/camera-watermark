@@ -149,6 +149,13 @@ for stem, preset in presets.items():
         err(f"presets/{stem}.json 不该有 styles/styleOrder（配色表已独立为 {styles_path.name}）")
     if not (preset.get('appearance') or {}).get('bgColor'):
         err(f"presets/{stem}.json 缺 appearance.bgColor（默认外观）")
+    fb = preset.get('fallback') or {}
+    for k in ('focal', 'aperture', 'speed', 'iso'):
+        v = fb.get(k)
+        if not (isinstance(v, (int, float)) and v > 0):
+            err(f"presets/{stem}.json 缺 fallback.{k}（截图/无 EXIF 的兜底值）")
+    if not (preset.get('metadata') or {}).get('modelDefault'):
+        err(f"presets/{stem}.json 缺 metadata.modelDefault（机型兜底）")
 
 # 3.3 preset 内素材引用
 for stem, preset in presets.items():

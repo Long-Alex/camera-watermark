@@ -72,6 +72,7 @@ var buildNode = function (n) {
     e.className = 'tn';
     e.setAttribute('data-id', n.id);
     e.setAttribute('data-fs', DP(font ? font['font-size'] : 0));
+    e.setAttribute('data-font', n.font || '');
     return e;
   }
 

@@ -9,6 +9,7 @@
       var sw = root.scrollWidth, cw = root.clientWidth;
       if (!sw || !cw || sw - cw <= 1) return;
       var k = cw / sw, nodes = root.querySelectorAll('.tn');
+      root.setAttribute('data-fit', '1');
       for (var i = 0; i < nodes.length; i++) {
         var base = parseFloat(nodes[i].getAttribute('data-fs'));
         if (base) nodes[i].style.fontSize = (base * k) + 'px';

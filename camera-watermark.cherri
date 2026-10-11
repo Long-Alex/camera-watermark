@@ -168,14 +168,21 @@ if !@photos {
 		const aperture = getValue(metadata, '{Exif}.FNumber')
 		const exposure = getValue(metadata, '{Exif}.ExposureTime')
 		const iso = getValue(metadata, '{Exif}.ISOSpeedRatings')
-		// 流式页面按照片宽度请求画布，不设置固定宽度上限。
-		const renderWidth = calculateExpression("rint({@photoWidth} / {deviceScale})")
-		const unit = calculateExpression("{photoShortEdge} / {deviceScale} / {designShort}")
-		const renderHeight = calculateExpression("rint({@bandHeightDesign} * {unit})")
+		// 流式页面按"照片宽/dpr"请求画布；真机视口过宽会渲染失败（踩坑 §9.1 实测 3024pt 挂），
+		// 超过上限就等比缩 unit，最后统一 resizeImageByLongestEdge 放大回照片宽（比例不变）。
+		const renderWidthRaw = calculateExpression("rint({@photoWidth} / {deviceScale})")
+		const unitRaw = calculateExpression("{photoShortEdge} / {deviceScale} / {designShort}")
+		@renderWidth = renderWidthRaw
+		@unit = unitRaw
+		if renderWidthRaw > 1512 {
+			@renderWidth = 1512
+			@unit = calculateExpression("{unitRaw} * 1512 / {renderWidthRaw}")
+		}
+		const renderHeight = calculateExpression("rint({@bandHeightDesign} * {@unit})")
 
 		// 模板中的运行时字段都是小块替换；CONFIG 保持 preset 原始 JSON。
 		@page = replaceText("@@CONFIG@@", "{presetText}", htmlTemplate)
-		@page = replaceText("@@UNIT@@", "{unit}", @page)
+		@page = replaceText("@@UNIT@@", "{@unit}", @page)
 		@page = replaceText("@@MODEL@@", "{@cameraModel}", @page)
 		@page = replaceText("@@TIME@@", "{formattedDate}", @page)
 		@page = replaceText("@@FOCAL@@", "{focalLength35mm}", @page)
@@ -195,7 +202,7 @@ if !@photos {
 		@page = replaceText("@@LOGO@@", "{logoSvg}", @page)
 		@page = replaceText("@@CORE_JS@@", "{rendererCode}", @page)
 		const richWatermark = getRichTextFromHTML(@page)
-		const watermarkAtRenderSize = makeImageFromRichText(richWatermark, "{renderWidth}", renderHeight)
+		const watermarkAtRenderSize = makeImageFromRichText(richWatermark, "{@renderWidth}", renderHeight)
 		const watermark = resizeImageByLongestEdge(watermarkAtRenderSize, "{@photoWidth}")
 
 		comment('- 按 preset 固定的合成模式处理，不在运行时让用户猜选项')
@@ -203,8 +210,8 @@ if !@photos {
 			const overlaySettings = getValue(compose, "overlay")
 			const overlayWidthDesign = getValue(overlaySettings, "width")
 			const overlayHeightDesign = getValue(overlaySettings, "height")
-			const overlayWidth = calculateExpression("{overlayWidthDesign} * {unit}")
-			const overlayHeight = calculateExpression("{overlayHeightDesign} * {unit}")
+			const overlayWidth = calculateExpression("{overlayWidthDesign} * {@unit}")
+			const overlayHeight = calculateExpression("{overlayHeightDesign} * {@unit}")
 			const overlayWidthText = getText(overlayWidth)
 			const overlayHeightText = getText(overlayHeight)
 			const overlayRotationValue = getValue(overlaySettings, "rotation")

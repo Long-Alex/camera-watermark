@@ -93,15 +93,27 @@ def dms(dec, pos, neg):
 
 def text_of(node_id, ctx):
     if node_id == "model":
-        return ctx["model"]
+        return ctx["model"] or ctx.get("modelDefault") or ""
     if node_id == "time":
         return fmt_dt(ctx["date"])
     if node_id == "exif":
-        e = ctx["exif"]
-        if not all(e.get(k) and float(e[k]) > 0 for k in ("focal", "aperture", "speed", "iso")):
-            return ""                                   # E0(): 任一无效 ⇒ 整行隐藏
+        fb = ctx.get("fallback") or {}
+
+        def val(k):
+            for src in (ctx["exif"], fb):               # 运行时值 → preset.fallback 兜底
+                try:
+                    x = float(src.get(k))
+                    if x > 0:
+                        return x
+                except (TypeError, ValueError):
+                    pass
+            return None
+
+        v = {k: val(k) for k in ("focal", "aperture", "speed", "iso")}
+        if any(x is None for x in v.values()):
+            return ""                                   # 纯引擎语义 E0：无值也无兜底 ⇒ 整行隐藏
         # ⚠ 有意差异：APK 模板原文是 "f/"，本项目按用户要求显示 "ƒ/"（U+0192）
-        return f"{int(round(float(e['focal'])))}mm  ƒ/{fmt_aperture(e['aperture'])}  {fmt_speed(e['speed'])}s  ISO{int(e['iso'])}"
+        return f"{int(round(v['focal']))}mm  ƒ/{fmt_aperture(v['aperture'])}  {fmt_speed(v['speed'])}s  ISO{int(v['iso'])}"
     if node_id == "location":
         if ctx.get("lat") in (None, "") or ctx.get("lon") in (None, ""):
             return ""

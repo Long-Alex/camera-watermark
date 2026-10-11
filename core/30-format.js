@@ -50,25 +50,32 @@ var fmtSpeed = function (x) {          // <1s ⇒ 1/N；≥1s ⇒ %g（复刻 fm
   if (x >= 1) return String(parseFloat(x.toPrecision(6)));
   return '1/' + Math.round(1 / x);
 };
-var exifOk = function (k) { var n = numValue(CONFIG[k]); return isFinite(n) && n > 0; };
+// 拍摄参数取值：运行时值 → preset.fallback 兜底 → NaN（截图/无 EXIF 也不会空/出错）
+var pickNum = function (k) {
+  var n = numValue(CONFIG[k]);
+  if (isFinite(n) && n > 0) return n;
+  var f = numValue((CONFIG.fallback || {})[k]);
+  return (isFinite(f) && f > 0) ? f : NaN;
+};
 
 var expand = function (tpl) {
   if (tpl == null) return '';
   var m = /@wm_time_(.+)$/.exec(tpl);
   if (m) return fmtTime(CONFIG.date, TIME_FMT['wm_time_' + m[1]] || m[1]);
   if (tpl.indexOf('location_latlng') >= 0) return latlng();
-  // E0(): focal/aperture/speed/iso 任一无效 ⇒ 整行隐藏（空文本，仍占一行高）
-  if (/@\{(focal|aperture|speed|iso)\}/.test(tpl) &&
-      !(exifOk('focal') && exifOk('aperture') && exifOk('speed') && exifOk('iso'))) return '';
+  // 涉及拍摄参数的行：四项都取"值或兜底"；连兜底都没有才整行置空（仍占一行高）
+  var needExif = /@\{(focal|aperture|speed|iso)\}/.test(tpl);
+  if (needExif && !(isFinite(pickNum('focal')) && isFinite(pickNum('aperture')) &&
+                    isFinite(pickNum('speed')) && isFinite(pickNum('iso')))) return '';
   return tpl.replace(/@\{(\w+)\}/g, function (_, k) {
     switch (k) {
       case 'model':      return CONFIG.model || (CONFIG.metadata && CONFIG.metadata.modelDefault) || '';
       case 'versionName':return CONFIG.versionName || '';
-      case 'focal':      return fmtFixed(CONFIG.focal, 0);
-      case 'focalActual':return fmtFixed(CONFIG.focalActual, 2);
-      case 'aperture':   return fmtFixed(CONFIG.aperture, 1);
-      case 'speed':      return fmtSpeed(CONFIG.speed);
-      case 'iso':        return fmtFixed(CONFIG.iso, 0);
+      case 'focal':      return fmtFixed(pickNum('focal'), 0);
+      case 'focalActual':return fmtFixed(numValue(CONFIG.focalActual), 2);
+      case 'aperture':   return fmtFixed(pickNum('aperture'), 1);
+      case 'speed':      return fmtSpeed(pickNum('speed'));
+      case 'iso':        return fmtFixed(pickNum('iso'), 0);
       case 'cvLens':     return CONFIG.lens || '';
       case 'logo':       return '';
       default:           return '';

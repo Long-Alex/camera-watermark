@@ -58,6 +58,20 @@ CASES = [
          exif=dict(focal=65, aperture=2.6, speed=1 / 171, iso=50), gps=(39.9056, 116.3914), logo="Leica"),
     dict(name="tiny_320x240", W=320, H=240, model="iPhone 15 Pro", date="2026-01-01T16:26:08",
          exif=dict(focal=65, aperture=2.6, speed=1 / 171, iso=50), gps=(39.9056, 116.3914), logo="Leica"),
+    dict(name="shot_mac_2560x1440", W=2560, H=1440, model="", date="2026-06-14T08:43:00",
+         exif=dict(focal=None, aperture=None, speed=None, iso=None), gps=None, logo="Leica"),
+    dict(name="shot_iphone_1170x2532", W=1170, H=2532, model="", date="2026-06-14T08:43:00",
+         exif=dict(focal=None, aperture=None, speed=None, iso=None), gps=None, logo="Leica"),
+    dict(name="square_1080", W=1080, H=1080, model="iPhone 18 Pro Max", date="2026-06-14T08:43:00",
+         exif=dict(focal=24, aperture=1.78, speed=1 / 120, iso=64), gps=(31.2304, 121.4737), logo="Leica"),
+    dict(name="pano_4000x800", W=4000, H=800, model="iPhone 18 Pro Max", date="2026-06-14T08:43:00",
+         exif=dict(focal=13, aperture=2.2, speed=1 / 500, iso=50), gps=(48.8566, 2.3522), logo="Leica"),
+    dict(name="tall_800x4000", W=800, H=4000, model="iPhone 18 Pro Max", date="2026-06-14T08:43:00",
+         exif=dict(focal=77, aperture=2.8, speed=1 / 250, iso=100), gps=(48.8566, 2.3522), logo="Leica"),
+    dict(name="tiny_100x100", W=100, H=100, model="iPhone 18 Pro Max", date="2026-06-14T08:43:00",
+         exif=dict(focal=None, aperture=None, speed=None, iso=None), gps=None, logo="Leica"),
+    dict(name="huge_8000x6000", W=8000, H=6000, model="iPhone 18 Pro Max", date="2026-06-14T08:43:00",
+         exif=dict(focal=24, aperture=1.78, speed=1 / 60, iso=200), gps=(39.9056, 116.3914), logo="Leica"),
     dict(name="dpr3_iphone", W=4032, H=3024, dpr=3, model="iPhone 15 Pro", date="2026-06-14T08:43:00",
          exif=dict(focal=100, aperture=1.8, speed=1 / 60, iso=200), gps=(39.9056, 116.3914), logo="Leica"),
 ]
@@ -73,6 +87,8 @@ def start_server():
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd, httpd.server_address[1]
 
+
+RENDER_WIDTH_CAP = 1512   # 与 camera-watermark.cherri 保持一致（踩坑 §9.1）
 
 PROBE = r"""
 ;(function () {
@@ -94,7 +110,15 @@ PROBE = r"""
     return { a: m.fontBoundingBoxAscent, d: m.fontBoundingBoxDescent, w: m.width,
              aOk: m.fontBoundingBoxAscent !== undefined };
   }
-  var out = { unit: u, boxes: boxes, texts: texts, doc: {w: document.documentElement.clientWidth, h: document.documentElement.clientHeight},
+  var fontsize = {};
+  var tns = root.querySelectorAll('.tn');
+  for (var t = 0; t < tns.length; t++) {
+    fontsize[tns[t].getAttribute('data-id')] = { size: parseFloat(getComputedStyle(tns[t]).fontSize),
+                                                 font: tns[t].getAttribute('data-font') };
+  }
+  var out = { unit: u, boxes: boxes, texts: texts, fontsize: fontsize,
+              fitted: root.getAttribute('data-fit') === '1',
+              doc: {w: document.documentElement.clientWidth, h: document.documentElement.clientHeight},
               root: { clientWidth: root.clientWidth, scrollWidth: root.scrollWidth, h: root.getBoundingClientRect().height },
               variant: root.getAttribute('data-variant'),
               err: (document.getElementById('wm-error') || {}).textContent || '',
@@ -285,6 +309,10 @@ def main():
         dpr = case.get("dpr", 1)
         unit = min(case["W"], case["H"]) / dpr / preset["metadata"]["designShort"]
         req_w = round(case["W"] / dpr)
+        # 与快捷指令同一套上限：视口宽 >1512pt 时等比缩 unit（最终再放大回照片宽）
+        if req_w > RENDER_WIDTH_CAP:
+            unit = unit * RENDER_WIDTH_CAP / req_w
+            req_w = RENDER_WIDTH_CAP
         band_h = round(band_dp * unit)
         page = build_page(preset, preset_text, bundle, case, style_id, logo, req_w)
         page = page.replace("UNITVAL", repr(unit))
@@ -294,7 +322,9 @@ def main():
         ref_unit = min(case["W"], case["H"]) / 1080.0
         rctx = dict(photo_w=case["W"], photo_h=case["H"], model=case["model"], date=case["date"],
                     exif=case.get("exif") or {}, lat=(case["gps"][0] if case.get("gps") else None),
-                    lon=(case["gps"][1] if case.get("gps") else None))
+                    lon=(case["gps"][1] if case.get("gps") else None),
+                    fallback=preset.get("fallback"),
+                    modelDefault=(preset.get("metadata") or {}).get("modelDefault"))
         ref_boxes, ref_meta = ref_layout.expected(rctx, variant=variant, logo_id=logo or "Leica")
 
         res = dict(case=case, unit=unit, req_w=req_w, band_h=band_h, band_dp=band_dp, variant=variant,
@@ -317,6 +347,12 @@ def main():
             im = Image.open(shot)
             assert im.width == req_w * dpr and im.height == band_h * dpr, \
                 f"screenshot {im.size} != {req_w*dpr}x{band_h*dpr}"
+            if round(case["W"] / dpr) > RENDER_WIDTH_CAP:      # 走了上限路径
+                scale = case["W"] / im.width                   # = resizeImageByLongestEdge(结果, 照片宽)
+                final_h = im.height * scale
+                want_h = band_dp * min(case["W"], case["H"]) / 1080.0
+                if abs(final_h - want_h) > 2:
+                    fails.append(f"上限路径放大回照片宽后带高 {final_h:.1f}px ≠ 设计 {want_h:.1f}px")
         if rep["err"]:
             print("   ! 页面报错:", rep["err"][:160])
             failures += 1
@@ -464,11 +500,26 @@ def check(res, preset, case):
     # ⑪ EXIF 无效 ⇒ 文本空但仍占一行高
     ex = case.get("exif") or {}
     exif_bad = not all(ex.get(k) and float(ex[k]) > 0 for k in ("focal", "aperture", "speed", "iso"))
+    fb = preset.get("fallback") or {}
+    can_fb = all(isinstance(fb.get(k), (int, float)) and fb[k] > 0 for k in ("focal", "aperture", "speed", "iso"))
     if exif_bad:
-        if exif and T.get("exif", "").strip():
-            fails.append(f"EXIF 无效却渲染了文字: {T['exif']!r}")
+        if can_fb and exif and not T.get("exif", "").strip():
+            fails.append("拍摄参数缺失且有兜底值，却渲染成空 ✗")
+        if (not can_fb) and exif and T.get("exif", "").strip():
+            fails.append(f"EXIF 无效且无兜底却渲染了文字: {T['exif']!r}")
         if exif and not close(exif["h"], preset["fonts"]["f3"]["line-height"] * u, 1.0):
-            fails.append(f"空 EXIF 高度 {exif['h']:.2f} ≠ 行高({preset['fonts']['f3']['line-height']*u:.2f})")
+            fails.append(f"EXIF 行高度 {exif['h']:.2f} ≠ 行高({preset['fonts']['f3']['line-height']*u:.2f})")
+    # ⑪b 字号 = 设计字号(dp) × unit；只有被 fit() 缩过才允许更小
+    for node, fk in (("model", "f1"), ("time", "f2"), ("location", "f2"), ("exif", "f3")):
+        fs = (rep.get("fontsize") or {}).get(node)
+        if not fs:
+            continue
+        want = preset["fonts"][fk]["font-size"] * u
+        if rep.get("fitted"):
+            if fs["size"] > want + 0.75:
+                fails.append(f"{node} 字号 {fs['size']:.2f} > {want:.2f}(=size×unit) 且未缩字号")
+        elif not close(fs["size"], want, 0.75):
+            fails.append(f"{node} 字号 {fs['size']:.2f} ≠ {want:.2f}(={preset['fonts'][fk]['font-size']}dp×unit)")
     else:
         if exif and not T.get("exif", "").strip():
             fails.append("EXIF 有效却没渲染文字")
@@ -476,7 +527,9 @@ def check(res, preset, case):
     want_txt = {k: ref_layout.text_of(k, dict(model=case["model"], date=case["date"],
                                               exif=case.get("exif") or {},
                                               lat=(case["gps"][0] if case.get("gps") else None),
-                                              lon=(case["gps"][1] if case.get("gps") else None)))
+                                              lon=(case["gps"][1] if case.get("gps") else None),
+                                              fallback=preset.get("fallback"),
+                                              modelDefault=(preset.get("metadata") or {}).get("modelDefault")))
                 for k in ("model", "time", "exif", "location")}
     for k in ("model", "time", "exif", "location"):
         if k in T and T.get(k) != want_txt[k]:

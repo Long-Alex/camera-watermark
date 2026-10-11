@@ -34,6 +34,13 @@
       "opacity": 100
     }
   },
+  "fallback": {
+    "note": "拍摄参数识别不到时的兜底值（截图/无 EXIF 的图）；机型兜底见 metadata.modelDefault",
+    "focal": 24,
+    "aperture": 1.8,
+    "speed": 0.0166666667,
+    "iso": 100
+  },
   "appearance": {
     "foregroundStart": "#000000",
     "foregroundEnd": "#000000",
