@@ -49,6 +49,18 @@ if remoteVersion != @localVersion {
 	const archive = downloadURL("https://github.com/Long-Alex/camera-watermark/archive/refs/heads/main.zip", {"Cache-Control": "no-cache"})
 	const extractedProject = extractArchive(archive)
 	const replaceMirror = saveFile("camera-watermark", extractedProject, true)
+
+	comment('- 落地复核：镜像里的 version 必须等于远端。zip 也有可能命中 CDN 缓存（raw 的 max-age=300 实测穿不透），
+	         若不一致就报错退出，避免"manifest 是新的、内容是旧的"这种静默错配')
+	const mirrorManifestFile = getFile("camera-watermark/manifest.json", nil, true)
+	const mirrorManifestText = getText(mirrorManifestFile)
+	const mirrorManifest = getDictionary(mirrorManifestText)
+	const mirrorVersionValue = getValue(mirrorManifest, "version")
+	@mirrorVersion = getText(mirrorVersionValue)
+	if @mirrorVersion != remoteVersion {
+		alert("资源包装的是缓存内容（远端 {remoteVersion} / 落地 {@mirrorVersion}）。请等 1~5 分钟后重跑一次。", "相机水印")
+		stop()
+	}
 }
 
 // 3. 读取项目数据，并在处理照片前一次性选择照片和水印设置。
