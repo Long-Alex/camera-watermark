@@ -1,5 +1,5 @@
 // 00-util: 基础工具（单位换算 / DOM / 取值）
-// 单位链：unit = min(照片宽,照片高) / dpr / designShort（快捷指令算好写进 RUNTIME.unit）
+// 单位链：unit = min(照片宽,照片高) / designShort（快捷指令算好写进 RUNTIME.unit；不除 dpr，踩坑 §9.1b）
 // WebView 里 1 CSS px = 1 pt ⇒ dp × unit = px
 var DP = function (v) {                       // dp 数值 → px；带单位字符串（"100%" / "0.083em"）原样
   if (typeof v === 'number') return (v * CONFIG.unit) + 'px';
@@ -227,9 +227,11 @@ var pickNum = function (k) {
 
 var expand = function (tpl) {
   if (tpl == null) return '';
-  var m = /@wm_time_(.+)$/.exec(tpl);
-  if (m) return fmtTime(CONFIG.date, TIME_FMT['wm_time_' + m[1]] || m[1]);
-  if (tpl.indexOf('location_latlng') >= 0) return latlng();
+  // 就地替换（不早返回）：模板里可以同时有时间和别的 token；早返回会把其余内容整行吞掉
+  tpl = tpl.replace(/@wm_time_(\w+)/g, function (_, k) {
+    return fmtTime(CONFIG.date, TIME_FMT['wm_time_' + k] || k);
+  });
+  tpl = tpl.replace(/location_latlng/g, latlng());
   // 涉及拍摄参数的行：四项都取"值或兜底"；连兜底都没有才整行置空（仍占一行高）
   var needExif = /@\{(focal|aperture|speed|iso)\}/.test(tpl);
   if (needExif && !(isFinite(pickNum('focal')) && isFinite(pickNum('aperture')) &&
@@ -338,20 +340,17 @@ var expand = function (tpl) {
     //   stretch = 拉满整条带（素材本身就是按带子比例设计的才用，比如 1px 竖渐变）
     var backgroundImage = BG_URI;   // 背景图 data URI（styles.json 的 background-image 只是素材 id，不是 URI）
     if (backgroundImage) {
-      var bgUrl = backgroundImage;
-      if (bgUrl) {
-        root.style.backgroundImage = 'url(' + bgUrl + ')';
-        root.style.backgroundPosition = 'center';
-        root.style.backgroundRepeat = 'no-repeat';
-        var bgFit = APP('background-fit', 'cover');
-        if (bgFit === 'repeat') {
-          root.style.backgroundSize = 'auto 100%';
-          root.style.backgroundRepeat = 'repeat-x';
-        } else if (bgFit === 'stretch') {
-          root.style.backgroundSize = '100% 100%';
-        } else {
-          root.style.backgroundSize = 'cover';
-        }
+      root.style.backgroundImage = 'url(' + backgroundImage + ')';
+      root.style.backgroundPosition = 'center';
+      root.style.backgroundRepeat = 'no-repeat';
+      var bgFit = APP('background-fit', 'cover');
+      if (bgFit === 'repeat') {
+        root.style.backgroundSize = 'auto 100%';       // 高度铺满 + 按原比例横向平铺
+        root.style.backgroundRepeat = 'repeat-x';
+      } else if (bgFit === 'stretch') {
+        root.style.backgroundSize = '100% 100%';        // 拉满（素材本身就是按带子比例设计的才用）
+      } else {
+        root.style.backgroundSize = 'cover';            // 默认：不变形铺满 + 居中裁切
       }
     }
 
