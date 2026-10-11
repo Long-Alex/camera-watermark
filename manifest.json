@@ -1,8 +1,7 @@
 {
-  "version": "1ebe4f0a0c83",
+  "version": "4aabc774a3b5",
   "presets": [
-    "leica",
-    "minimal"
+    "leica"
   ],
   "prompts": {
     "source": "请选择要添加水印的照片",
