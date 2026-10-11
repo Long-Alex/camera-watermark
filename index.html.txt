@@ -21,11 +21,8 @@ var RTV     = { unit:@@UNIT@@, model:"@@MODEL@@", date:"@@TIME@@",
                 focal:"@@FOCAL@@", focalActual:"@@FOCAL_ACTUAL@@",
                 aperture:"@@APERTURE@@", speed:"@@SPEED@@", iso:"@@ISO@@",
                 lat:"@@LAT@@", lon:"@@LON@@" };
-var OVERRIDE= { "foreground-start":"@@FOREGROUND_START@@", "foreground-end":"@@FOREGROUND_END@@",
-                "foreground-stop":"@@FOREGROUND_STOP@@", "foreground-direction":"@@FOREGROUND_DIRECTION@@",
-                "line-opacity":"@@LINE_OPACITY@@",
-                "background-color":"@@BACKGROUND_COLOR@@", "background-image":"@@BACKGROUND_IMAGE@@",
-                "background-fit":"@@BACKGROUND_FIT@@" };
+var OVERRIDE= @@APPEARANCE_JSON@@;   // 选中样式的 JSON 原文（键同 styles.json）
+var BG_URI   = "@@BACKGROUND_IMAGE@@";  // 背景图 data URI（有图才有）
 var ASSETS  = {};
 @@CORE_JS@@
 </script></body></html>
