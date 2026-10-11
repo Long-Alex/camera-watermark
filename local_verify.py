@@ -21,6 +21,7 @@ from urllib.parse import quote
 from PIL import Image
 
 import ref_layout
+import wm_plan
 
 R = pathlib.Path(__file__).parent
 OUT = R / "_local"
@@ -90,7 +91,7 @@ def start_server():
     return httpd, httpd.server_address[1]
 
 
-RENDER_WIDTH_CAP = 1512   # 与 camera-watermark.cherri 保持一致（踩坑 §9.1）
+# 渲染宽上限不再本地硬编码：wm_plan 从 camera-watermark.cherri 的公式里提取
 
 PROBE = r"""
 ;(function () {
@@ -312,13 +313,9 @@ def main():
         variant = "layout" if case.get("gps") else "layout_loc_off"
         band_dp = preset["metadata"]["bandDpByVariant"][variant]
         dpr = case.get("dpr", 1)
-        unit = min(case["W"], case["H"]) / dpr / preset["metadata"]["designShort"]
-        req_w = round(case["W"] / dpr)
-        # 与快捷指令同一套上限：视口宽 >1512pt 时等比缩 unit（最终再放大回照片宽）
-        if req_w > RENDER_WIDTH_CAP:
-            unit = unit * RENDER_WIDTH_CAP / req_w
-            req_w = RENDER_WIDTH_CAP
-        band_h = round(band_dp * unit)
+        # 尺寸算术不自己写：直接把 camera-watermark.cherri 里的公式提取出来求值（wm_plan）
+        _plan = wm_plan.plan(case["W"], case["H"], dpr, preset["metadata"]["designShort"], band_dp)
+        unit, req_w, band_h = _plan["unit"], _plan["req_w"], _plan["band_h"]
         page = build_page(preset, preset_text, bundle, case, style_id, logo, req_w)
         page = page.replace("UNITVAL", repr(unit))
         rep, shot, stderr = render(case, unit, req_w, band_h, page, case["name"])
@@ -353,7 +350,7 @@ def main():
             im = Image.open(shot)
             assert im.width == req_w * dpr and im.height == band_h * dpr, \
                 f"screenshot {im.size} != {req_w*dpr}x{band_h*dpr}"
-            if round(case["W"] / dpr) > RENDER_WIDTH_CAP:      # 走了上限路径
+            if _plan["req_w"] < round(case["W"] / dpr):        # 走了上限路径（reqW 被钳小）
                 scale = case["W"] / im.width                   # = resizeImageByLongestEdge(结果, 照片宽)
                 final_h = im.height * scale
                 want_h = band_dp * min(case["W"], case["H"]) / 1080.0

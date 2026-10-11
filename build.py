@@ -223,6 +223,21 @@ if mf.get('logos') != logo_ids:
     (R / 'manifest.json').write_text(json.dumps(mf, ensure_ascii=False, indent=2) + "\n")
 print(f"  manifest.logos = {logo_ids}")
 
+# 4.5) 尺寸链公式可提取？（本地 demo / 校验的算术直接取自 cherri，抽不出来就等于本地校验失效）
+sys.path.insert(0, str(R))
+try:
+    import wm_plan
+    _p = wm_plan.plan(4032, 3024, 3, 1080, 159.8)
+    _q = wm_plan.plan(8000, 6000, 3, 1080, 159.8)
+    if _q["req_w"] != 1512:
+        err(f"wm_plan 上限逻辑可疑：8000×6000(dpr3) 的 reqW={_q['req_w']} ≠ 1512（公式提取错？）")
+    if _p["req_w"] != 1344:
+        err(f"wm_plan 无上限路径可疑：4032×3024(dpr3) 的 reqW={_p['req_w']} ≠ 1344")
+    print(f"  尺寸链公式取自 {_p['source']}：4032×3024(dpr3)→reqW={_p['req_w']} bandH={_p['band_h']}pt"
+          f" ｜ 8000×6000(dpr3)→reqW={_q['req_w']}（上限生效）")
+except Exception as e:
+    err(f"wm_plan 提取 cherri 公式失败：{e}")
+
 # ---------------------------------------------------------------- 5) version = 载荷哈希
 PAYLOAD = [R / 'index.html.txt', R / 'messages.json']
 PAYLOAD += [q for q in [R / manifest.get('styles', 'styles.json')] if q.exists()]

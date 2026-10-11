@@ -17,6 +17,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent))
 import argparse as _ap
 
 import local_verify as lv
+import wm_plan
 from PIL import Image, ImageOps
 
 R = pathlib.Path(__file__).parent
@@ -107,14 +108,10 @@ def main():
                 variant = "layout" if (ex["lat"] is not None and ex["lon"] is not None) else "layout_loc_off"
                 band_dp = preset["metadata"]["bandDpByVariant"][variant]
                 design_short = preset["metadata"]["designShort"]
-                unit = min(W, H) / a.dpr / design_short
-                req_w0 = round(W / a.dpr)
-                req_w = req_w0
-                capped = req_w0 > CAP
-                if capped:
-                    unit = unit * CAP / req_w0
-                    req_w = CAP
-                band_h = round(band_dp * unit)
+                # 尺寸算术 = camera-watermark.cherri 里的公式（wm_plan 原样提取求值）
+                plan = wm_plan.plan(W, H, a.dpr, design_short, band_dp)
+                unit, req_w, band_h = plan["unit"], plan["req_w"], plan["band_h"]
+                capped = req_w < round(W / a.dpr)
 
                 case = dict(name=f"demo_{i:02d}", W=W, H=H, dpr=a.dpr,      # ← 必须传，否则渲染按 1×，成品会糊
                             model=ex["model"], date=ex["date"],
@@ -168,9 +165,10 @@ def main():
         shutil.rmtree(tmp, ignore_errors=True)
 
     lines = [f"# demo photo 本地验证（{len(rows)}/{len(photos)} 张成功）", "",
-             f"- 素材：`{src_dir}`", f"- 链路：dpr={a.dpr}、渲染宽上限 {CAP}pt、`unit = min(W,H)/dpr/1080`、"
-             f"`bandH = rint(bandDp × unit)`、Chrome 出图后缩到照片宽再纵向拼接",
-             f"- 样式：`{a.style}`；logo：`Leica`", "",
+             "- **尺寸算术 = `camera-watermark.cherri` 里的公式**（`wm_plan.py` 原样提取 `calculateExpression` 求值，含 1512pt 上限）",
+             "- 渲染用的是同一份 preset / styles.json / index.html.txt / core/bundle.js / assets/logo/*.txt",
+             f"- dpr={a.dpr}；样式：`{a.style}`；logo：`Leica`",
+             "- 成品 = Chrome 出图（reqW×dpr × bandH×dpr 位图）→ 缩到照片宽 → 纵向拼接", "",
              "| 照片 | 像素 | unit | reqW(*=走上限) | bandH(pt) | 变体 | 成品带高 | 设计带高 | 机型 | 定位 | 兜底 | 输出 |",
              "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
