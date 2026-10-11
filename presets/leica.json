@@ -42,14 +42,6 @@
     "speed": 0.0166666667,
     "iso": 100
   },
-  "appearance": {
-    "foreground-start": "#000000",
-    "foreground-end": "#000000",
-    "foreground-stop": "30%",
-    "foreground-direction": "90deg",
-    "line-opacity": 0.3,
-    "background-color": "#FFFFFF"
-  },
   "layout_group": [
     {
       "layout": [
@@ -59,7 +51,6 @@
           "width": "100%",
           "height": "auto",
           "align-items": "center",
-          "background-color": "var(--watermark-bg)",
           "padding": {
             "top": 40,
             "bottom": 40,
@@ -145,7 +136,6 @@
           "width": "100%",
           "height": "auto",
           "align-items": "center",
-          "background-color": "var(--watermark-bg)",
           "padding": {
             "top": 40,
             "bottom": 40,

@@ -99,18 +99,27 @@ if not styles_path.exists():
 styles_doc = json.loads(styles_path.read_text()) if styles_path.exists() else {}
 style_ids = list(styles_doc.get('order') or [])
 style_table = styles_doc.get('appearance') or {}
+# 配色的唯一来源 = styles.json；一款必须给齐 6 个键（快捷指令逐个读出来注入，缺了运行时静默回落）
+APPEARANCE_KEYS = ('foreground-start', 'foreground-end', 'foreground-stop',
+                   'foreground-direction', 'line-opacity', 'background-color')
 for sid in style_ids:
     st = style_table.get(sid)
     if st is None:
         err(f"{styles_path.name}: order 里的 '{sid}' 不在 appearance 里")
         continue
-    for k in ('foreground-start', 'foreground-end', 'background-color'):
-        if not st.get(k):
+    for k in APPEARANCE_KEYS:
+        if st.get(k) in (None, ''):
             err(f"{styles_path.name}: appearance.{sid} 缺 {k}")
+    bg = st.get('background-image')
+    if bg:
+        if not (R / 'assets' / 'background' / f"{bg}.png").exists():
+            err(f"{styles_path.name}: appearance.{sid}.background-image='{bg}' 但 assets/background/{bg}.png 不存在")
+        warn(f"{styles_path.name}: appearance.{sid} 用了 background-image，但快捷指令目前仍写死空串"
+             f"（camera-watermark.cherri 的 @@BACKGROUND_IMAGE@@）⇒ 加了也不生效")
 for sid in style_table:
     if sid not in style_ids:
         warn(f"{styles_path.name}: appearance.{sid} 不在 order 里（菜单里看不到）")
-print(f"  {styles_path.name}: {len(style_ids)} 款配色 {style_ids}")
+print(f"  {styles_path.name}: {len(style_ids)} 款配色 {style_ids}（每款 {len(APPEARANCE_KEYS)} 键齐全 ✓）")
 
 # 3.1 manifest.presets ↔ presets/*.json
 listed = manifest.get('presets') or []
@@ -143,12 +152,13 @@ for menu in manifest.get('menus') or []:
     if mid not in (messages.get('items') or {}) and role not in ('source', 'logo'):
         warn(f"messages.items 缺菜单 '{mid}'（显示名将回落为 id）")
 
-# 3.25 preset 只管水印本身：配色表已独立为 styles.json
+# 3.25 preset 只管水印本身（版式/字体/兜底）：配色唯一来源 = styles.json，preset 里不许再有副本
 for stem, preset in presets.items():
     if 'styles' in preset or 'styleOrder' in preset:
         err(f"presets/{stem}.json 不该有 styles/styleOrder（配色表已独立为 {styles_path.name}）")
-    if not (preset.get('appearance') or {}).get('background-color'):
-        err(f"presets/{stem}.json 缺 appearance.background-color（默认外观）")
+    if 'appearance' in preset:
+        err(f"presets/{stem}.json 不该有 appearance（配色统一由 {styles_path.name} 提供，"
+            f"快捷指令会把选中款注入到页面 CONFIG.appearance）")
     fb = preset.get('fallback') or {}
     for k in ('focal', 'aperture', 'speed', 'iso'):
         v = fb.get(k)
@@ -161,9 +171,6 @@ for stem, preset in presets.items():
 
 # 3.3 preset 内素材引用
 for stem, preset in presets.items():
-    for sname, s in (preset.get('styles') or {}).items():
-        if s.get('bgImage') and not (R / 'assets' / 'background' / (s['bgImage'] + '.png')).exists():
-            warn(f"preset {stem} style {sname}: 背景图 assets/background/{s['bgImage']}.png 缺失")
     for entry in preset.get('layout_group') or []:
         for vname, nodes in entry.items():
             stack = list(nodes)
@@ -244,6 +251,7 @@ PAYLOAD += [q for q in [R / manifest.get('styles', 'styles.json')] if q.exists()
 PAYLOAD += sorted((R / 'presets').glob('*.json'))
 PAYLOAD += sorted((R / 'menus').glob('*'))
 PAYLOAD += sorted((R / 'assets').rglob('*.txt'))
+PAYLOAD += sorted((R / 'assets').rglob('*.png'))   # 背景图等素材（styles.json 的 background-image 指向它）
 PAYLOAD += sorted((R / 'core').glob('*.js'))
 h = hashlib.sha1()
 for p in PAYLOAD:
