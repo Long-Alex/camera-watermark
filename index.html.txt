@@ -3,18 +3,19 @@
 html,body{margin:0;padding:0;width:100%;}
 #wm-root{box-sizing:border-box;width:100%;overflow:hidden;}
 #wm-logo-src{display:none!important;}
-#wm-root .tn{background:linear-gradient(90deg,var(--foreground-start) 30%,var(--foreground-end));-webkit-background-clip:text;background-clip:text;color:transparent!important;}
+#wm-root .tn{background:linear-gradient(var(--foreground-direction),var(--foreground-start) @@FOREGROUND_STOP@@,var(--foreground-end));-webkit-background-clip:text;background-clip:text;color:transparent!important;}
 </style>
 </head><body>
 <div id="wm-root"></div>
 <div id="wm-logo-src" style="display:none">@@LOGO@@</div>
+<div id="wm-leica-src" style="display:none">@@LEICA_LOGO@@</div>
 <script>
 var CONFIG  = @@CONFIG@@;
 var RTV     = { unit:@@UNIT@@, model:"@@MODEL@@", date:"@@TIME@@",
                 focal:"@@FOCAL@@", focalActual:"@@FOCAL_ACTUAL@@",
                 aperture:"@@APERTURE@@", speed:"@@SPEED@@", iso:"@@ISO@@",
                 lat:"@@LAT@@", lon:"@@LON@@" };
-var OVERRIDE= { foregroundStart:"@@FOREGROUND_START@@", foregroundEnd:"@@FOREGROUND_END@@",
+var OVERRIDE= { foregroundStart:"@@FOREGROUND_START@@", foregroundEnd:"@@FOREGROUND_END@@", foregroundStop:"@@FOREGROUND_STOP@@", foregroundDirection:"@@FOREGROUND_DIRECTION@@",
                bgColor:"@@BG_COLOR@@", bgImage:"@@BG_IMAGE@@" };
 @@CORE_JS@@
 </script></body></html>

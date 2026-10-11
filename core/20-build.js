@@ -6,12 +6,13 @@ var buildNode = function (n) {
 
   if (t === 'divider') {
     var d = EL('div', css);
-    d.style.backgroundImage = 'linear-gradient(90deg,var(--foreground-start),var(--foreground-end))';
+    d.style.backgroundImage = 'linear-gradient(' + OVERRIDE.foregroundDirection + ',var(--foreground-start) ' + OVERRIDE.foregroundStop + ',var(--foreground-end))';
     return d;
   }
   if (t === 'image') {
     var box = EL('div', css); box.style.display = 'flex';
-    var src = document.getElementById('wm-logo-src');
+    var sourceId = n.src === 'leica' ? 'wm-leica-src' : 'wm-logo-src';
+    var src = document.getElementById(sourceId);
     var svg = src ? src.innerHTML : '';
     if (svg) {
       box.innerHTML = svg;                           // SVG 内联（currentColor 跟随 css.color）
@@ -20,10 +21,12 @@ var buildNode = function (n) {
         inner.style.height = '100%'; inner.style.width = 'auto'; inner.setAttribute('height', '100%');
         var ns = 'http://www.w3.org/2000/svg', defs = document.createElementNS(ns, 'defs');
         var gradient = document.createElementNS(ns, 'linearGradient');
-        gradient.setAttribute('id', 'cw-logo-gradient'); gradient.setAttribute('x1', '0%');
-        gradient.setAttribute('y1', '0%'); gradient.setAttribute('x2', '100%'); gradient.setAttribute('y2', '0%');
-        [['0%', OVERRIDE.foregroundStart], ['100%', OVERRIDE.foregroundEnd || OVERRIDE.foregroundStart]].forEach(function (stop) {
-          var s = document.createElementNS(ns, 'stop'); s.setAttribute('offset', stop[0]); s.setAttribute('stop-color', stop[1] || '#000000'); gradient.appendChild(s);
+        var angle = (parseFloat(OVERRIDE.foregroundDirection) - 90) * Math.PI / 180;
+        var dx = Math.cos(angle), dy = Math.sin(angle);
+        gradient.setAttribute('id', 'cw-logo-gradient'); gradient.setAttribute('x1', (50 - dx * 50) + '%');
+        gradient.setAttribute('y1', (50 - dy * 50) + '%'); gradient.setAttribute('x2', (50 + dx * 50) + '%'); gradient.setAttribute('y2', (50 + dy * 50) + '%');
+        [[OVERRIDE.foregroundStop, OVERRIDE.foregroundStart], ['100%', OVERRIDE.foregroundEnd]].forEach(function (stop) {
+          var s = document.createElementNS(ns, 'stop'); s.setAttribute('offset', stop[0]); s.setAttribute('stop-color', stop[1]); gradient.appendChild(s);
         });
         defs.appendChild(gradient); inner.insertBefore(defs, inner.firstChild);
         inner.querySelectorAll('path,rect,circle,ellipse,polygon,polyline,use').forEach(function (shape) {
@@ -49,13 +52,4 @@ var buildNode = function (n) {
   var root = EL('div', css);
   (n.children || []).forEach(function (c) { root.appendChild(buildNode(c)); });
   return root;
-};
-var fitText = function (root) {                    // 机型防溢出：缩字号（最多 6 步）
-  var nodes = root.querySelectorAll('.tn');
-  for (var i = 0; i < nodes.length; i++) {
-    var e = nodes[i], s = parseFloat(e.style.fontSize) || 0, step = 0;
-    while (e.scrollWidth > e.clientWidth + 1 && s > 8 && step < 6) {
-      s *= 0.94; e.style.fontSize = s + 'px'; step++;
-    }
-  }
 };

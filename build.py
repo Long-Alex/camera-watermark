@@ -11,42 +11,34 @@ mods = sorted(p for p in (R / 'core').glob('*.js') if p.name != 'bundle.js')
 (R / 'core' / 'bundle.js').write_text('\n'.join(p.read_text() for p in mods))
 print(f"  合并 {len(mods)} 个模块 → core/bundle.js")
 
-# 2) bandDp（多 layout 变体取 max）
-def band_dp(variant):
-    def col_h(col):
-        h = 0
-        for ch in col.get('children', []):
-            if ch.get('type') == 'text':
-                h += ch.get('margin-top', 0) + 0   # 占位: line-height 由 fonts 提供
-        return h
-    # 简化: 用 fonts 里的 line-height 精确算
-    def col_h2(col):
-        h = 0
-        for ch in col.get('children', []):
-            if ch.get('type') == 'text':
-                f = preset['fonts'][ch['font']]
-                h += ch.get('margin-top', 0) + f.get('line-height', 0)
-            elif ch.get('type') == 'image':
-                h = max(h, ch.get('height', 0))
-            elif ch.get('type') == 'divider':
-                h = max(h, ch.get('height', 0))
-        return h
+# 2) bandDp（递归测量所有 layout 变体）
+def node_height(node, fonts):
+    kind = node.get('type')
+    children = node.get('children', [])
+    if kind == 'text':
+        return fonts.get(node.get('font'), {}).get('line-height', 0)
+    if kind in ('image', 'divider'):
+        return node.get('height', 0)
+    heights = [node_height(child, fonts) + child.get('margin-top', 0) for child in children]
+    if kind == 'column':
+        return sum(heights)
+    if kind == 'row':
+        return max(heights, default=0)
+    return max(heights, default=0)
+
+def band_dp(variant, fonts):
     root = variant[0]
     pad = root.get('padding', {})
-    left = right = 0
-    for ch in root.get('children', []):
-        i = root['children'].index(ch)
-        if ch.get('type') == 'column' and i == 0: left = col_h2(ch)
-        if ch.get('type') == 'row' and i == 1:
-            right = max([col_h2(c) if c.get('type') == 'column' else c.get('height', 0) for c in ch.get('children', [])] or [0])
-    return pad.get('top', 0) + max(left, right) + pad.get('bottom', 0)
+    content = max((node_height(child, fonts) + child.get('margin-top', 0)
+                   for child in root.get('children', [])), default=0)
+    return pad.get('top', 0) + content + pad.get('bottom', 0)
 
 for pf in sorted((R / 'presets').glob('*.json')):
     preset = json.loads(pf.read_text())
     pid = preset.get('metadata', {}).get('id')
     if pid != pf.stem: err(f"{pf.name}: metadata.id({pid}) ≠ 文件名")
     by_variant = {
-        next(iter(v)): band_dp(list(v.values())[0])
+        next(iter(v)): band_dp(list(v.values())[0], preset.get('fonts', {}))
         for v in preset.get('layout_group', [])
     }
     vals = list(by_variant.values())

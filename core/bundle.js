@@ -14,11 +14,11 @@ var PAD = function (p, side) { return p && p[side] != null ? p[side] : 0; };
 // 10-style: layout 节点 → CSS 样式对象（字段名即 CSS 属性名，纯数字=dp）
 var LAYOUT_PROPS = ['width','height','margin-top','margin-bottom','margin-left','margin-right',
                     'padding-top','padding-bottom','padding-left','padding-right',
-                    'text-align','background-color','justify-content','align-items','flex-direction','flex'];
+                    'min-width','text-align','background-color','justify-content','align-items','flex-direction','flex'];
 var nodeStyle = function (n, font) {
   var css = { boxSizing: 'border-box' };
   LAYOUT_PROPS.forEach(function (p) {
-    if (n[p] != null) css[p] = (/^(margin|padding)/.test(p) || p === 'width' || p === 'height') ? DP(n[p]) : n[p];
+    if (n[p] != null) css[p] = (/^(margin|padding)/.test(p) || p === 'width' || p === 'height' || p === 'min-width') ? DP(n[p]) : n[p];
   });
   if (n.padding) {
     css['padding-top'] = DP(PAD(n.padding,'top')); css['padding-bottom'] = DP(PAD(n.padding,'bottom'));
@@ -28,7 +28,7 @@ var nodeStyle = function (n, font) {
   if (t === 'row')    css.display = 'flex', css['flex-direction'] = 'row';
   if (t === 'column') css.display = 'flex', css['flex-direction'] = 'column', css['align-items'] = css['align-items'] || 'flex-start';
   if (t === 'text' && font) {
-    css['font-family']    = "-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang SC',sans-serif";
+    css['font-family']    = font['font-family'];
     css['font-size']      = DP(font['font-size']);
     css['font-weight']    = font['font-weight'];
     css['line-height']    = DP(font['line-height']);
@@ -37,10 +37,6 @@ var nodeStyle = function (n, font) {
     css['white-space']    = 'pre';
     if (n['text-align'] === 'right') css['align-self'] = 'flex-end';
   }
-  if (t === 'image') css.color = css.color || '#000';
-  // The preset root carries a literal white background. Apply the selected
-  // theme to that node so it survives the layout's own inline background.
-  if (n.id === 'bottom_layout' && OVERRIDE.bgColor) css['background-color'] = OVERRIDE.bgColor;
   if (n.css) (n.css || '').split(';').forEach(function (kv) {
     var i = kv.indexOf(':'); if (i > 0) css[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
   });
@@ -55,12 +51,13 @@ var buildNode = function (n) {
 
   if (t === 'divider') {
     var d = EL('div', css);
-    d.style.backgroundImage = 'linear-gradient(90deg,var(--foreground-start),var(--foreground-end))';
+    d.style.backgroundImage = 'linear-gradient(' + OVERRIDE.foregroundDirection + ',var(--foreground-start) ' + OVERRIDE.foregroundStop + ',var(--foreground-end))';
     return d;
   }
   if (t === 'image') {
     var box = EL('div', css); box.style.display = 'flex';
-    var src = document.getElementById('wm-logo-src');
+    var sourceId = n.src === 'leica' ? 'wm-leica-src' : 'wm-logo-src';
+    var src = document.getElementById(sourceId);
     var svg = src ? src.innerHTML : '';
     if (svg) {
       box.innerHTML = svg;                           // SVG 内联（currentColor 跟随 css.color）
@@ -69,10 +66,12 @@ var buildNode = function (n) {
         inner.style.height = '100%'; inner.style.width = 'auto'; inner.setAttribute('height', '100%');
         var ns = 'http://www.w3.org/2000/svg', defs = document.createElementNS(ns, 'defs');
         var gradient = document.createElementNS(ns, 'linearGradient');
-        gradient.setAttribute('id', 'cw-logo-gradient'); gradient.setAttribute('x1', '0%');
-        gradient.setAttribute('y1', '0%'); gradient.setAttribute('x2', '100%'); gradient.setAttribute('y2', '0%');
-        [['0%', OVERRIDE.foregroundStart], ['100%', OVERRIDE.foregroundEnd || OVERRIDE.foregroundStart]].forEach(function (stop) {
-          var s = document.createElementNS(ns, 'stop'); s.setAttribute('offset', stop[0]); s.setAttribute('stop-color', stop[1] || '#000000'); gradient.appendChild(s);
+        var angle = (parseFloat(OVERRIDE.foregroundDirection) - 90) * Math.PI / 180;
+        var dx = Math.cos(angle), dy = Math.sin(angle);
+        gradient.setAttribute('id', 'cw-logo-gradient'); gradient.setAttribute('x1', (50 - dx * 50) + '%');
+        gradient.setAttribute('y1', (50 - dy * 50) + '%'); gradient.setAttribute('x2', (50 + dx * 50) + '%'); gradient.setAttribute('y2', (50 + dy * 50) + '%');
+        [[OVERRIDE.foregroundStop, OVERRIDE.foregroundStart], ['100%', OVERRIDE.foregroundEnd]].forEach(function (stop) {
+          var s = document.createElementNS(ns, 'stop'); s.setAttribute('offset', stop[0]); s.setAttribute('stop-color', stop[1]); gradient.appendChild(s);
         });
         defs.appendChild(gradient); inner.insertBefore(defs, inner.firstChild);
         inner.querySelectorAll('path,rect,circle,ellipse,polygon,polyline,use').forEach(function (shape) {
@@ -98,15 +97,6 @@ var buildNode = function (n) {
   var root = EL('div', css);
   (n.children || []).forEach(function (c) { root.appendChild(buildNode(c)); });
   return root;
-};
-var fitText = function (root) {                    // 机型防溢出：缩字号（最多 6 步）
-  var nodes = root.querySelectorAll('.tn');
-  for (var i = 0; i < nodes.length; i++) {
-    var e = nodes[i], s = parseFloat(e.style.fontSize) || 0, step = 0;
-    while (e.scrollWidth > e.clientWidth + 1 && s > 8 && step < 6) {
-      s *= 0.94; e.style.fontSize = s + 'px'; step++;
-    }
-  }
 };
 
 // 30-format: token 展开（唯一权威表见文档 §5.3）
@@ -188,15 +178,15 @@ var expand = function (tpl) {
 
   var root = document.getElementById('wm-root');
   root.style.width = '100%';
-  root.style.background = OVERRIDE.bgColor || '';
-  document.body.style.setProperty('--foreground-start', OVERRIDE.foregroundStart || '#000000');
-  document.body.style.setProperty('--foreground-end', OVERRIDE.foregroundEnd || OVERRIDE.foregroundStart || '#000000');
+  root.style.setProperty('--watermark-bg', OVERRIDE.bgColor);
+  document.body.style.setProperty('--foreground-start', OVERRIDE.foregroundStart);
+  document.body.style.setProperty('--foreground-end', OVERRIDE.foregroundEnd);
+  document.body.style.setProperty('--foreground-direction', OVERRIDE.foregroundDirection);
   var bgKey = 'background:' + (OVERRIDE.bgImage || '');
   if (OVERRIDE.bgImage && ASSETS[bgKey]) {
     root.style.backgroundImage = 'url(' + ASSETS[bgKey] + ')';
     root.style.backgroundSize = '100% 100%';
   }
   pick.forEach(function (n) { root.appendChild(buildNode(n)); });
-  fitText(root);
   } catch (e) {}
 })();

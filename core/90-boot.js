@@ -17,15 +17,15 @@
 
   var root = document.getElementById('wm-root');
   root.style.width = '100%';
-  root.style.background = OVERRIDE.bgColor || '';
-  document.body.style.setProperty('--foreground-start', OVERRIDE.foregroundStart || '#000000');
-  document.body.style.setProperty('--foreground-end', OVERRIDE.foregroundEnd || OVERRIDE.foregroundStart || '#000000');
+  root.style.setProperty('--watermark-bg', OVERRIDE.bgColor);
+  document.body.style.setProperty('--foreground-start', OVERRIDE.foregroundStart);
+  document.body.style.setProperty('--foreground-end', OVERRIDE.foregroundEnd);
+  document.body.style.setProperty('--foreground-direction', OVERRIDE.foregroundDirection);
   var bgKey = 'background:' + (OVERRIDE.bgImage || '');
   if (OVERRIDE.bgImage && ASSETS[bgKey]) {
     root.style.backgroundImage = 'url(' + ASSETS[bgKey] + ')';
     root.style.backgroundSize = '100% 100%';
   }
   pick.forEach(function (n) { root.appendChild(buildNode(n)); });
-  fitText(root);
   } catch (e) {}
 })();
