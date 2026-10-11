@@ -138,7 +138,7 @@ PROBE = r"""
 
 
 def build_page(preset, preset_text, bundle, case, style_id, logo_file, req_w):
-    style = STYLES["styles"][style_id]
+    style = STYLES["appearance"][style_id]
     gps = case.get("gps")
     ex = case.get("exif") or {}
     def v(x):
@@ -152,10 +152,10 @@ def build_page(preset, preset_text, bundle, case, style_id, logo_file, req_w):
         "@@FOCAL@@": v(ex.get("focal")), "@@FOCAL_ACTUAL@@": "",
         "@@APERTURE@@": v(ex.get("aperture")), "@@SPEED@@": v(ex.get("speed")), "@@ISO@@": v(ex.get("iso")),
         "@@LAT@@": v(gps[0]) if gps else "", "@@LON@@": v(gps[1]) if gps else "",
-        "@@FOREGROUND_START@@": style["foregroundStart"], "@@FOREGROUND_END@@": style["foregroundEnd"],
-        "@@FOREGROUND_STOP@@": style["foregroundStop"], "@@FOREGROUND_DIRECTION@@": style["foregroundDirection"],
-        "@@LINE_OPACITY@@": str(style.get("lineOpacity", 1)),
-        "@@BG_COLOR@@": style["bgColor"], "@@BG_IMAGE@@": "",
+        "@@FOREGROUND_START@@": style["foreground-start"], "@@FOREGROUND_END@@": style["foreground-end"],
+        "@@FOREGROUND_STOP@@": style["foreground-stop"], "@@FOREGROUND_DIRECTION@@": style["foreground-direction"],
+        "@@LINE_OPACITY@@": str(style.get("line-opacity", 1)),
+        "@@BACKGROUND_COLOR@@": style["background-color"], "@@BACKGROUND_IMAGE@@": "",
         "@@LOGO@@": (R / "assets" / "logo" / f"{logo_file}.txt").read_text() if logo_file else "",
         "@@CORE_JS@@": bundle,
     }
@@ -375,7 +375,7 @@ def check_pixels(res, preset, case, style_id):
     if not shot.exists():
         return ["截图缺失"]
     im = Image.open(shot).convert("RGB")
-    want = hex_rgb(STYLES["styles"][style_id]["bgColor"])
+    want = hex_rgb(STYLES["appearance"][style_id]["background-color"])
     got = im.getpixel((3, 3))
     if max(abs(a - b) for a, b in zip(got, want)) > 6:
         fails.append(f"截图底色 {got} ≠ 样式底色 {want}")
@@ -555,9 +555,9 @@ def check(res, preset, case):
                 fails.append(f"[ref] {k} h {b['h']:.2f} ≠ {rb['h']*u:.2f}")
     # ⑬b 分隔线颜色 = 前景色 × lineOpacity 混底色（防"透明度没传进来"这类静默错）
     if line and row:
-        st = STYLES["styles"][case.get("style", "light")]
-        a = float(st.get("lineOpacity", 1))
-        fg = hex_rgb(st["foregroundStart"]); bg = hex_rgb(st["bgColor"])
+        st = STYLES["appearance"][case.get("style", "light")]
+        a = float(st.get("line-opacity", 1))
+        fg = hex_rgb(st["foreground-start"]); bg = hex_rgb(st["background-color"])
         want_px = tuple(round(a * f + (1 - a) * b) for f, b in zip(fg, bg))
         res["want_divider"] = want_px
 

@@ -4,30 +4,30 @@
     "dark",
     "gold"
   ],
-  "styles": {
+  "appearance": {
     "light": {
-      "foregroundStart": "#000000",
-      "foregroundEnd": "#000000",
-      "foregroundStop": "30%",
-      "foregroundDirection": "90deg",
-      "lineOpacity": 0.3,
-      "bgColor": "#FFFFFF"
+      "foreground-start": "#000000",
+      "foreground-end": "#000000",
+      "foreground-stop": "30%",
+      "foreground-direction": "90deg",
+      "line-opacity": 0.3,
+      "background-color": "#FFFFFF"
     },
     "dark": {
-      "foregroundStart": "#FFFFFF",
-      "foregroundEnd": "#FFFFFF",
-      "foregroundStop": "30%",
-      "foregroundDirection": "90deg",
-      "lineOpacity": 0.7,
-      "bgColor": "#141414"
+      "foreground-start": "#FFFFFF",
+      "foreground-end": "#FFFFFF",
+      "foreground-stop": "30%",
+      "foreground-direction": "90deg",
+      "line-opacity": 0.7,
+      "background-color": "#141414"
     },
     "gold": {
-      "foregroundStart": "#FDC9AE",
-      "foregroundEnd": "#F5E3D9",
-      "foregroundStop": "30%",
-      "foregroundDirection": "45deg",
-      "lineOpacity": 0.7,
-      "bgColor": "#1D1D1F"
+      "foreground-start": "#FDC9AE",
+      "foreground-end": "#F5E3D9",
+      "foreground-stop": "30%",
+      "foreground-direction": "45deg",
+      "line-opacity": 0.7,
+      "background-color": "#1D1D1F"
     }
   }
 }

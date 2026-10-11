@@ -27,22 +27,23 @@
 
     // 2) 覆盖对象 → 改写 CONFIG.appearance（preset 只存默认值；配色表由快捷指令传入，见 §4.5）
     var ap = CONFIG.appearance = CONFIG.appearance || {};
-    var APP_KEYS = ['foregroundStart','foregroundEnd','foregroundStop','foregroundDirection','lineOpacity','bgColor','bgImage'];
+    var APP_KEYS = ['foreground-start','foreground-end','foreground-stop','foreground-direction',
+                    'line-opacity','background-color','background-image'];
     for (var a = 0; a < APP_KEYS.length; a++) {
       var k = APP_KEYS[a];
       if (OVERRIDE && OVERRIDE[k] !== '' && OVERRIDE[k] != null) ap[k] = OVERRIDE[k];
     }
     var st = document.documentElement.style;
-    st.setProperty('--watermark-bg', APP('bgColor', '#FFFFFF'));
-    st.setProperty('--foreground-start', APP('foregroundStart', '#000000'));
-    st.setProperty('--foreground-end', APP('foregroundEnd', APP('foregroundStart', '#000000')));
-    st.setProperty('--foreground-stop', APP('foregroundStop', '0%'));
-    st.setProperty('--foreground-direction', APP('foregroundDirection', '90deg'));
+    st.setProperty('--background-color', APP('background-color', '#FFFFFF'));
+    st.setProperty('--foreground-start', APP('foreground-start', '#000000'));
+    st.setProperty('--foreground-end', APP('foreground-end', APP('foreground-start', '#000000')));
+    st.setProperty('--foreground-stop', APP('foreground-stop', '0%'));
+    st.setProperty('--foreground-direction', APP('foreground-direction', '90deg'));
 
     var root = document.getElementById('wm-root');
-    var bgImage = APP('bgImage', '');
-    if (bgImage && typeof ASSETS !== 'undefined' && ASSETS['background:' + bgImage]) {
-      root.style.backgroundImage = 'url(' + ASSETS['background:' + bgImage] + ')';
+    var backgroundImage = APP('background-image', '');
+    if (backgroundImage && typeof ASSETS !== 'undefined' && ASSETS['background:' + backgroundImage]) {
+      root.style.backgroundImage = 'url(' + ASSETS['background:' + backgroundImage] + ')';
       root.style.backgroundSize = '100% 100%';
     }
 

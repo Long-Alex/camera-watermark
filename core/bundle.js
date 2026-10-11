@@ -13,7 +13,7 @@ var EL = function (tag, css, text) {
 };
 var PAD = function (p, side) { return p && p[side] != null ? p[side] : 0; };
 var FONT = function (n) { return n.font ? ((CONFIG.fonts || {})[n.font] || null) : null; };
-// 外观取值：CONFIG.appearance 是 preset 默认值，运行时已被 OVERRIDE 改写（§4.5）
+// 外观取值：键 = CSS 属性名（preset.appearance 与 styles.json 同一套），运行时已被 OVERRIDE 改写（§4.5）
 var APP = function (k, dflt) {
   var a = CONFIG.appearance || {};
   return (a[k] != null && a[k] !== '') ? a[k] : dflt;
@@ -69,12 +69,12 @@ var paintGradient = function (svg) {
   var ns = 'http://www.w3.org/2000/svg';
   var defs = document.createElementNS(ns, 'defs');
   var g = document.createElementNS(ns, 'linearGradient');
-  var angle = (parseFloat(APP('foregroundDirection', '90deg')) - 90) * Math.PI / 180;
+  var angle = (parseFloat(APP('foreground-direction', '90deg')) - 90) * Math.PI / 180;
   var dx = Math.cos(angle), dy = Math.sin(angle);
   g.setAttribute('id', SVG_GRADIENT_ID);
   g.setAttribute('x1', (50 - dx * 50) + '%'); g.setAttribute('y1', (50 - dy * 50) + '%');
   g.setAttribute('x2', (50 + dx * 50) + '%'); g.setAttribute('y2', (50 + dy * 50) + '%');
-  [[APP('foregroundStop', '0%'), APP('foregroundStart', '#000000')], ['100%', APP('foregroundEnd', '#000000')]]
+  [[APP('foreground-stop', '0%'), APP('foreground-start', '#000000')], ['100%', APP('foreground-end', '#000000')]]
     .forEach(function (st) {
       var s = document.createElementNS(ns, 'stop');
       s.setAttribute('offset', st[0]); s.setAttribute('stop-color', st[1]);
@@ -96,9 +96,9 @@ var buildNode = function (n) {
 
   if (t === 'divider') {                                  // 2dp × 64dp 色块（@foreground=1）
     var d = EL('div', css);
-    d.style.backgroundImage = 'linear-gradient(' + APP('foregroundDirection', '90deg') + ',var(--foreground-start) ' +
-                              APP('foregroundStop', '0%') + ',var(--foreground-end))';
-    if (css.opacity == null) d.style.opacity = APP('lineOpacity', 1);   // @foreground=1 的 alpha
+    d.style.backgroundImage = 'linear-gradient(' + APP('foreground-direction', '90deg') + ',var(--foreground-start) ' +
+                              APP('foreground-stop', '0%') + ',var(--foreground-end))';
+    if (css.opacity == null) d.style.opacity = APP('line-opacity', 1);   // @foreground=1 的 alpha
     d.setAttribute('data-id', n.id);
     return d;
   }
@@ -256,22 +256,23 @@ var expand = function (tpl) {
 
     // 2) 覆盖对象 → 改写 CONFIG.appearance（preset 只存默认值；配色表由快捷指令传入，见 §4.5）
     var ap = CONFIG.appearance = CONFIG.appearance || {};
-    var APP_KEYS = ['foregroundStart','foregroundEnd','foregroundStop','foregroundDirection','lineOpacity','bgColor','bgImage'];
+    var APP_KEYS = ['foreground-start','foreground-end','foreground-stop','foreground-direction',
+                    'line-opacity','background-color','background-image'];
     for (var a = 0; a < APP_KEYS.length; a++) {
       var k = APP_KEYS[a];
       if (OVERRIDE && OVERRIDE[k] !== '' && OVERRIDE[k] != null) ap[k] = OVERRIDE[k];
     }
     var st = document.documentElement.style;
-    st.setProperty('--watermark-bg', APP('bgColor', '#FFFFFF'));
-    st.setProperty('--foreground-start', APP('foregroundStart', '#000000'));
-    st.setProperty('--foreground-end', APP('foregroundEnd', APP('foregroundStart', '#000000')));
-    st.setProperty('--foreground-stop', APP('foregroundStop', '0%'));
-    st.setProperty('--foreground-direction', APP('foregroundDirection', '90deg'));
+    st.setProperty('--background-color', APP('background-color', '#FFFFFF'));
+    st.setProperty('--foreground-start', APP('foreground-start', '#000000'));
+    st.setProperty('--foreground-end', APP('foreground-end', APP('foreground-start', '#000000')));
+    st.setProperty('--foreground-stop', APP('foreground-stop', '0%'));
+    st.setProperty('--foreground-direction', APP('foreground-direction', '90deg'));
 
     var root = document.getElementById('wm-root');
-    var bgImage = APP('bgImage', '');
-    if (bgImage && typeof ASSETS !== 'undefined' && ASSETS['background:' + bgImage]) {
-      root.style.backgroundImage = 'url(' + ASSETS['background:' + bgImage] + ')';
+    var backgroundImage = APP('background-image', '');
+    if (backgroundImage && typeof ASSETS !== 'undefined' && ASSETS['background:' + backgroundImage]) {
+      root.style.backgroundImage = 'url(' + ASSETS['background:' + backgroundImage] + ')';
       root.style.backgroundSize = '100% 100%';
     }
 

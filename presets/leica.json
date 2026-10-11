@@ -42,12 +42,12 @@
     "iso": 100
   },
   "appearance": {
-    "foregroundStart": "#000000",
-    "foregroundEnd": "#000000",
-    "foregroundStop": "30%",
-    "foregroundDirection": "90deg",
-    "lineOpacity": 0.3,
-    "bgColor": "#FFFFFF"
+    "foreground-start": "#000000",
+    "foreground-end": "#000000",
+    "foreground-stop": "30%",
+    "foreground-direction": "90deg",
+    "line-opacity": 0.3,
+    "background-color": "#FFFFFF"
   },
   "layout_group": [
     {

@@ -98,18 +98,18 @@ if not styles_path.exists():
     err(f"manifest.styles 指向的 {styles_path.name} 不存在")
 styles_doc = json.loads(styles_path.read_text()) if styles_path.exists() else {}
 style_ids = list(styles_doc.get('order') or [])
-style_table = styles_doc.get('styles') or {}
+style_table = styles_doc.get('appearance') or {}
 for sid in style_ids:
     st = style_table.get(sid)
     if st is None:
-        err(f"{styles_path.name}: order 里的 '{sid}' 不在 styles 里")
+        err(f"{styles_path.name}: order 里的 '{sid}' 不在 appearance 里")
         continue
-    for k in ('foregroundStart', 'foregroundEnd', 'bgColor'):
+    for k in ('foreground-start', 'foreground-end', 'background-color'):
         if not st.get(k):
-            err(f"{styles_path.name}: styles.{sid} 缺 {k}")
+            err(f"{styles_path.name}: appearance.{sid} 缺 {k}")
 for sid in style_table:
     if sid not in style_ids:
-        warn(f"{styles_path.name}: styles.{sid} 不在 order 里（菜单里看不到）")
+        warn(f"{styles_path.name}: appearance.{sid} 不在 order 里（菜单里看不到）")
 print(f"  {styles_path.name}: {len(style_ids)} 款配色 {style_ids}")
 
 # 3.1 manifest.presets ↔ presets/*.json
@@ -147,8 +147,8 @@ for menu in manifest.get('menus') or []:
 for stem, preset in presets.items():
     if 'styles' in preset or 'styleOrder' in preset:
         err(f"presets/{stem}.json 不该有 styles/styleOrder（配色表已独立为 {styles_path.name}）")
-    if not (preset.get('appearance') or {}).get('bgColor'):
-        err(f"presets/{stem}.json 缺 appearance.bgColor（默认外观）")
+    if not (preset.get('appearance') or {}).get('background-color'):
+        err(f"presets/{stem}.json 缺 appearance.background-color（默认外观）")
     fb = preset.get('fallback') or {}
     for k in ('focal', 'aperture', 'speed', 'iso'):
         v = fb.get(k)
@@ -191,7 +191,7 @@ for stem, preset in presets.items():
 skeleton = (R / 'index.html.txt').read_text()
 for name in ['CONFIG', 'LOGO', 'CORE_JS', 'UNIT', 'MODEL', 'TIME', 'FOCAL', 'APERTURE', 'SPEED', 'ISO', 'LAT', 'LON',
              'FOREGROUND_START', 'FOREGROUND_END', 'FOREGROUND_STOP', 'FOREGROUND_DIRECTION', 'LINE_OPACITY',
-             'BG_COLOR', 'BG_IMAGE']:
+             'BACKGROUND_COLOR', 'BACKGROUND_IMAGE']:
     if f"@@{name}@@" not in skeleton:
         err(f"index.html.txt 缺占位符 @@{name}@@")
 
