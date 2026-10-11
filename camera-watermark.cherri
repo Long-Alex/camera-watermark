@@ -155,9 +155,13 @@ if !@photos {
 		const aperture = getValue(metadata, '{Exif}.FNumber')
 		const exposure = getValue(metadata, '{Exif}.ExposureTime')
 		const iso = getValue(metadata, '{Exif}.ISOSpeedRatings')
-		const unit = calculateExpression("{photoShortEdge} / {deviceScale} / {designShort}")
-		const renderWidth = calculateExpression("rint({@photoWidth} / {deviceScale})")
-		const renderHeight = calculateExpression("{@bandHeightDesign} * {unit}")
+		// 流式页面按照片比例铺满；iOS 富文本视图宽度保守限制在 1512 点，
+		// 超宽照片先以安全宽度矢量绘制，再按照片宽度等比缩放，避免画布超限后只出一条内容。
+		const requestedRenderWidth = calculateExpression("rint({@photoWidth} / {deviceScale})")
+		const renderWidth = calculateExpression("min({requestedRenderWidth}, 1512)")
+		// unit 同时补偿渲染宽度上限；缩放回照片宽度后，设计元素仍按短边比例保持原尺寸。
+		const unit = calculateExpression("{photoShortEdge} * {renderWidth} / ({@photoWidth} * {designShort})")
+		const renderHeight = calculateExpression("rint({@bandHeightDesign} * {unit})")
 
 		// 模板中的运行时字段都是小块替换；CONFIG 保持 preset 原始 JSON。
 		@page = replaceText("@@CONFIG@@", "{presetText}", htmlTemplate)

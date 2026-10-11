@@ -1,7 +1,7 @@
 <!DOCTYPE html><html><head><meta charset=utf-8>
 <style id="wm-style">
-html,body{box-sizing:border-box;margin:0;padding:0;width:100%;height:100%;overflow:hidden;}
-#wm-root{box-sizing:border-box;width:100%;height:100%;overflow:hidden;}
+html,body{margin:0;padding:0;width:100%;}
+#wm-root{box-sizing:border-box;width:100%;overflow:hidden;}
 #wm-logo-src{display:none!important;}
 #wm-root .tn{background:linear-gradient(90deg,var(--foreground-start) 30%,var(--foreground-end));-webkit-background-clip:text;background-clip:text;color:transparent!important;}
 </style>
