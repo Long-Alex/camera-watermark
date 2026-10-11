@@ -45,9 +45,16 @@ for pf in sorted((R / 'presets').glob('*.json')):
     preset = json.loads(pf.read_text())
     pid = preset.get('metadata', {}).get('id')
     if pid != pf.stem: err(f"{pf.name}: metadata.id({pid}) ≠ 文件名")
-    vals = [band_dp(list(v.values())[0]) for v in preset.get('layout_group', [])]
+    by_variant = {
+        next(iter(v)): band_dp(list(v.values())[0])
+        for v in preset.get('layout_group', [])
+    }
+    vals = list(by_variant.values())
     bd = max(vals) if vals else 0
     print(f"  {pf.stem}: bandDp = {bd}  (变体 {vals})")
+    if preset.get('metadata', {}).get('bandDpByVariant') != by_variant:
+        preset['metadata']['bandDpByVariant'] = by_variant
+        pf.write_text(json.dumps(preset, ensure_ascii=False, indent=2) + "\n")
     if preset.get('metadata', {}).get('bandDp') != bd:
         preset['metadata']['bandDp'] = bd
         pf.write_text(json.dumps(preset, ensure_ascii=False, indent=2) + "\n")

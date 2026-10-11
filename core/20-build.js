@@ -4,7 +4,11 @@ var buildNode = function (n) {
   var css  = nodeStyle(n, font);
   var t = n.type;
 
-  if (t === 'divider') { var d = EL('div', css); return d; }
+  if (t === 'divider') {
+    var d = EL('div', css);
+    d.style.backgroundImage = 'linear-gradient(90deg,var(--foreground-start),var(--foreground-end))';
+    return d;
+  }
   if (t === 'image') {
     var box = EL('div', css); box.style.display = 'flex';
     var src = document.getElementById('wm-logo-src');
@@ -12,7 +16,23 @@ var buildNode = function (n) {
     if (svg) {
       box.innerHTML = svg;                           // SVG 内联（currentColor 跟随 css.color）
       var inner = box.querySelector('svg');           // 让 SVG 撑满容器（否则被自身 width/height 框死）
-      if (inner) { inner.style.height = '100%'; inner.style.width = 'auto'; inner.setAttribute('height', '100%'); }
+      if (inner) {
+        inner.style.height = '100%'; inner.style.width = 'auto'; inner.setAttribute('height', '100%');
+        var ns = 'http://www.w3.org/2000/svg', defs = document.createElementNS(ns, 'defs');
+        var gradient = document.createElementNS(ns, 'linearGradient');
+        gradient.setAttribute('id', 'cw-logo-gradient'); gradient.setAttribute('x1', '0%');
+        gradient.setAttribute('y1', '0%'); gradient.setAttribute('x2', '100%'); gradient.setAttribute('y2', '0%');
+        [['0%', OVERRIDE.foregroundStart], ['100%', OVERRIDE.foregroundEnd || OVERRIDE.foregroundStart]].forEach(function (stop) {
+          var s = document.createElementNS(ns, 'stop'); s.setAttribute('offset', stop[0]); s.setAttribute('stop-color', stop[1] || '#000000'); gradient.appendChild(s);
+        });
+        defs.appendChild(gradient); inner.insertBefore(defs, inner.firstChild);
+        inner.querySelectorAll('path,rect,circle,ellipse,polygon,polyline,use').forEach(function (shape) {
+          var fill = shape.getAttribute('fill');
+          if (fill !== 'none') shape.setAttribute('fill', 'url(#cw-logo-gradient)');
+          var stroke = shape.getAttribute('stroke');
+          if (stroke && stroke !== 'none') shape.setAttribute('stroke', 'url(#cw-logo-gradient)');
+        });
+      }
       box.style.alignItems = 'center';
     }
     if (n.optional && !svg) box.style.display = 'none';

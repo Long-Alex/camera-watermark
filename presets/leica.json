@@ -3,8 +3,18 @@
   "metadata": {
     "id": "leica",
     "designShort": 1080,
-    "bandDp": 159.8,
-    "modelDefault": "iPhone"
+    "bandDp": 162,
+    "modelDefault": "iPhone",
+    "exifFallback": {
+      "focal": 24,
+      "aperture": 1.8,
+      "speed": 0.016666667,
+      "iso": 100
+    },
+    "bandDpByVariant": {
+      "layout": 162,
+      "layout_loc_off": 162
+    }
   },
   "compose": {
     "mode": "stitch",
@@ -22,16 +32,19 @@
   },
   "styles": {
     "light": {
-      "fontColor": "#000000",
+      "foregroundStart": "#000000",
+      "foregroundEnd": "#000000",
       "bgColor": "#FFFFFF"
     },
     "dark": {
-      "fontColor": "#FFFFFF",
+      "foregroundStart": "#FFFFFF",
+      "foregroundEnd": "#FFFFFF",
       "bgColor": "#141414"
     },
     "gold": {
-      "fontColor": "#000000",
-      "bgColor": "#FFFFFF"
+      "foregroundStart": "#7F591E",
+      "foregroundEnd": "#B69332",
+      "bgColor": "#1D1D1F"
     }
   },
   "layout_group": [
@@ -89,8 +102,7 @@
                   "id": "sep",
                   "width": 2,
                   "height": 64,
-                  "margin-left": 24,
-                  "background-color": "rgba(0,0,0,.30)"
+                  "margin-left": 24
                 },
                 {
                   "type": "column",
@@ -102,7 +114,7 @@
                       "id": "exif",
                       "font": "f3",
                       "text-align": "right",
-                      "text": "@{focal}mm  f/@{aperture}  @{speed}s  ISO@{iso}"
+                      "text": "@{focal}mm  ƒ/@{aperture}  @{speed}s  ISO@{iso}"
                     },
                     {
                       "type": "text",
@@ -145,6 +157,13 @@
                   "id": "model",
                   "font": "f1",
                   "text": "@{model}"
+                },
+                {
+                  "type": "text",
+                  "id": "time",
+                  "font": "f2",
+                  "margin-top": 10,
+                  "text": "@wm_time_yyyy.MM.dd HH:mm"
                 }
               ],
               "flex": "none"
@@ -167,8 +186,7 @@
                   "id": "sep",
                   "width": 2,
                   "height": 64,
-                  "margin-left": 24,
-                  "background-color": "rgba(0,0,0,.30)"
+                  "margin-left": 24
                 },
                 {
                   "type": "column",
@@ -180,14 +198,7 @@
                       "id": "exif",
                       "font": "f3",
                       "text-align": "right",
-                      "text": "@{focal}mm  f/@{aperture}  @{speed}s  ISO@{iso}"
-                    },
-                    {
-                      "type": "text",
-                      "id": "time",
-                      "font": "f2",
-                      "margin-top": 10,
-                      "text": "@wm_time_yyyy.MM.dd HH:mm"
+                      "text": "@{focal}mm  ƒ/@{aperture}  @{speed}s  ISO@{iso}"
                     }
                   ]
                 }
@@ -202,22 +213,19 @@
   "fonts": {
     "f1": {
       "font-size": 30.6,
-      "font-weight": 600,
-      "color": "#000000",
-      "line-height": 40.6
+      "font-weight": 501,
+      "line-height": 42
     },
     "f2": {
       "font-size": 22,
-      "font-weight": 400,
-      "color": "rgba(0,0,0,.50)",
-      "line-height": 29.2,
+      "font-weight": 451,
+      "line-height": 30,
       "letter-spacing": "0.083em"
     },
     "f3": {
       "font-size": 30,
-      "font-weight": 600,
-      "color": "#000000",
-      "line-height": 39.8
+      "font-weight": 501,
+      "line-height": 41
     }
   },
   "styleOrder": [

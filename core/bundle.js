@@ -28,15 +28,19 @@ var nodeStyle = function (n, font) {
   if (t === 'row')    css.display = 'flex', css['flex-direction'] = 'row';
   if (t === 'column') css.display = 'flex', css['flex-direction'] = 'column', css['align-items'] = css['align-items'] || 'flex-start';
   if (t === 'text' && font) {
-    css['font-family']    = "'Helvetica Neue','PingFang SC',sans-serif";
+    css['font-family']    = "-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang SC',sans-serif";
     css['font-size']      = DP(font['font-size']);
     css['font-weight']    = font['font-weight'];
     css['line-height']    = DP(font['line-height']);
-    css.color              = OVERRIDE.fontColor || font.color;
+    if (font.color) css.color = font.color;
     if (font['letter-spacing']) css['letter-spacing'] = font['letter-spacing'];
     css['white-space']    = 'pre';
+    if (n['text-align'] === 'right') css['align-self'] = 'flex-end';
   }
-  if (t === 'image') css.color = OVERRIDE.fontColor || (css.color || '#000');
+  if (t === 'image') css.color = css.color || '#000';
+  // The preset root carries a literal white background. Apply the selected
+  // theme to that node so it survives the layout's own inline background.
+  if (n.id === 'bottom_layout' && OVERRIDE.bgColor) css['background-color'] = OVERRIDE.bgColor;
   if (n.css) (n.css || '').split(';').forEach(function (kv) {
     var i = kv.indexOf(':'); if (i > 0) css[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
   });
@@ -49,7 +53,11 @@ var buildNode = function (n) {
   var css  = nodeStyle(n, font);
   var t = n.type;
 
-  if (t === 'divider') { var d = EL('div', css); return d; }
+  if (t === 'divider') {
+    var d = EL('div', css);
+    d.style.backgroundImage = 'linear-gradient(90deg,var(--foreground-start),var(--foreground-end))';
+    return d;
+  }
   if (t === 'image') {
     var box = EL('div', css); box.style.display = 'flex';
     var src = document.getElementById('wm-logo-src');
@@ -57,7 +65,23 @@ var buildNode = function (n) {
     if (svg) {
       box.innerHTML = svg;                           // SVG 内联（currentColor 跟随 css.color）
       var inner = box.querySelector('svg');           // 让 SVG 撑满容器（否则被自身 width/height 框死）
-      if (inner) { inner.style.height = '100%'; inner.style.width = 'auto'; inner.setAttribute('height', '100%'); }
+      if (inner) {
+        inner.style.height = '100%'; inner.style.width = 'auto'; inner.setAttribute('height', '100%');
+        var ns = 'http://www.w3.org/2000/svg', defs = document.createElementNS(ns, 'defs');
+        var gradient = document.createElementNS(ns, 'linearGradient');
+        gradient.setAttribute('id', 'cw-logo-gradient'); gradient.setAttribute('x1', '0%');
+        gradient.setAttribute('y1', '0%'); gradient.setAttribute('x2', '100%'); gradient.setAttribute('y2', '0%');
+        [['0%', OVERRIDE.foregroundStart], ['100%', OVERRIDE.foregroundEnd || OVERRIDE.foregroundStart]].forEach(function (stop) {
+          var s = document.createElementNS(ns, 'stop'); s.setAttribute('offset', stop[0]); s.setAttribute('stop-color', stop[1] || '#000000'); gradient.appendChild(s);
+        });
+        defs.appendChild(gradient); inner.insertBefore(defs, inner.firstChild);
+        inner.querySelectorAll('path,rect,circle,ellipse,polygon,polyline,use').forEach(function (shape) {
+          var fill = shape.getAttribute('fill');
+          if (fill !== 'none') shape.setAttribute('fill', 'url(#cw-logo-gradient)');
+          var stroke = shape.getAttribute('stroke');
+          if (stroke && stroke !== 'none') shape.setAttribute('stroke', 'url(#cw-logo-gradient)');
+        });
+      }
       box.style.alignItems = 'center';
     }
     if (n.optional && !svg) box.style.display = 'none';
@@ -107,6 +131,14 @@ var fmtSpeed = function (x) {
   return '1/' + Math.round(1 / x);
 };
 var fmtNum = function (x, dec) { x = Number(x); return (x == null || isNaN(x)) ? '' : String(Number(x.toFixed(dec))); };
+var numValue = function (x) {
+  if (typeof x === 'string' && x.indexOf('/') >= 0) {
+    var p = x.split('/'), a = Number(p[0]), b = Number(p[1]);
+    if (isFinite(a) && isFinite(b) && b !== 0) return a / b;
+  }
+  var n = Number(x);
+  return isFinite(n) ? n : NaN;
+};
 var expand = function (tpl) {
   if (tpl == null) return '';
   var m = /@wm_time_(.*)$/.exec(tpl);
@@ -117,6 +149,11 @@ var expand = function (tpl) {
     return dms(g.lat, 'N', 'S') + ' ' + dms(g.lon, 'E', 'W');
   }
   var e = CONFIG.exif || CONFIG;   // 扁平键时直接读 CONFIG
+  var fallback = (CONFIG.metadata && CONFIG.metadata.exifFallback) || {};
+  ['focal','aperture','speed','iso'].forEach(function (k) {
+    var n = numValue(e[k]);
+    e[k] = (e[k] == null || e[k] === '' || !isFinite(n) || n <= 0) ? fallback[k] : n;
+  });
   return tpl.replace(/@\{(\w+)\}/g, function (_, k) {
     switch (k) {
       case 'model': case 'versionName': return CONFIG.model || CONFIG.metadata.modelDefault || '';
@@ -152,6 +189,8 @@ var expand = function (tpl) {
   var root = document.getElementById('wm-root');
   root.style.width = '100%';
   root.style.background = OVERRIDE.bgColor || '';
+  document.body.style.setProperty('--foreground-start', OVERRIDE.foregroundStart || '#000000');
+  document.body.style.setProperty('--foreground-end', OVERRIDE.foregroundEnd || OVERRIDE.foregroundStart || '#000000');
   var bgKey = 'background:' + (OVERRIDE.bgImage || '');
   if (OVERRIDE.bgImage && ASSETS[bgKey]) {
     root.style.backgroundImage = 'url(' + ASSETS[bgKey] + ')';
@@ -159,8 +198,5 @@ var expand = function (tpl) {
   }
   pick.forEach(function (n) { root.appendChild(buildNode(n)); });
   fitText(root);
-  } catch (e) {
-    var box = document.getElementById('err');
-    if (box) box.textContent = 'ERR: ' + e.message + ' | ' + (e.stack || '').split('\n').slice(0, 3).join(' <- ');
-  }
+  } catch (e) {}
 })();

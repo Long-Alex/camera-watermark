@@ -18,6 +18,8 @@
   var root = document.getElementById('wm-root');
   root.style.width = '100%';
   root.style.background = OVERRIDE.bgColor || '';
+  document.body.style.setProperty('--foreground-start', OVERRIDE.foregroundStart || '#000000');
+  document.body.style.setProperty('--foreground-end', OVERRIDE.foregroundEnd || OVERRIDE.foregroundStart || '#000000');
   var bgKey = 'background:' + (OVERRIDE.bgImage || '');
   if (OVERRIDE.bgImage && ASSETS[bgKey]) {
     root.style.backgroundImage = 'url(' + ASSETS[bgKey] + ')';
@@ -25,8 +27,5 @@
   }
   pick.forEach(function (n) { root.appendChild(buildNode(n)); });
   fitText(root);
-  } catch (e) {
-    var box = document.getElementById('err');
-    if (box) box.textContent = 'ERR: ' + e.message + ' | ' + (e.stack || '').split('\n').slice(0, 3).join(' <- ');
-  }
+  } catch (e) {}
 })();

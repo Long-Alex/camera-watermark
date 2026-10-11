@@ -1,11 +1,12 @@
 <!DOCTYPE html><html><head><meta charset=utf-8>
-<style id="wm-style"></style>
+<style id="wm-style">
+html,body{margin:0;padding:0;width:100%;}
+#wm-root{box-sizing:border-box;overflow:hidden;}
+#wm-logo-src{display:none!important;}
+#wm-root .tn{background:linear-gradient(90deg,var(--foreground-start) 30%,var(--foreground-end));-webkit-background-clip:text;background-clip:text;color:transparent!important;}
+</style>
 </head><body>
-<script>window.onerror=function(m,src,l,c){var e=document.getElementById("err");if(e)e.textContent="ERR: "+m+" line "+l+":"+c;};</script>
-<script>document.addEventListener("DOMContentLoaded",function(){var e=document.getElementById("static-probe");if(e)e.textContent="JS-RAN";});</script>
 <div id="wm-root"></div>
-<div id="err" style="font-size:22px;color:#c00;font-family:Helvetica">no-err</div>
-<div id="static-probe" style="font-size:40px;color:#000;font-family:Helvetica,sans-serif">静态测试 ABC</div>
 <div id="wm-logo-src" style="display:none">@@LOGO@@</div>
 <script>
 var CONFIG  = @@CONFIG@@;
@@ -13,6 +14,7 @@ var RTV     = { unit:@@UNIT@@, model:"@@MODEL@@", date:"@@TIME@@",
                 focal:"@@FOCAL@@", focalActual:"@@FOCAL_ACTUAL@@",
                 aperture:"@@APERTURE@@", speed:"@@SPEED@@", iso:"@@ISO@@",
                 lat:"@@LAT@@", lon:"@@LON@@" };
-var OVERRIDE= { fontColor:"@@FONT_COLOR@@", bgColor:"@@BG_COLOR@@", bgImage:"@@BG_IMAGE@@" };
+var OVERRIDE= { foregroundStart:"@@FOREGROUND_START@@", foregroundEnd:"@@FOREGROUND_END@@",
+               bgColor:"@@BG_COLOR@@", bgImage:"@@BG_IMAGE@@" };
 @@CORE_JS@@
 </script></body></html>

@@ -20,6 +20,14 @@ var fmtSpeed = function (x) {
   return '1/' + Math.round(1 / x);
 };
 var fmtNum = function (x, dec) { x = Number(x); return (x == null || isNaN(x)) ? '' : String(Number(x.toFixed(dec))); };
+var numValue = function (x) {
+  if (typeof x === 'string' && x.indexOf('/') >= 0) {
+    var p = x.split('/'), a = Number(p[0]), b = Number(p[1]);
+    if (isFinite(a) && isFinite(b) && b !== 0) return a / b;
+  }
+  var n = Number(x);
+  return isFinite(n) ? n : NaN;
+};
 var expand = function (tpl) {
   if (tpl == null) return '';
   var m = /@wm_time_(.*)$/.exec(tpl);
@@ -30,6 +38,11 @@ var expand = function (tpl) {
     return dms(g.lat, 'N', 'S') + ' ' + dms(g.lon, 'E', 'W');
   }
   var e = CONFIG.exif || CONFIG;   // 扁平键时直接读 CONFIG
+  var fallback = (CONFIG.metadata && CONFIG.metadata.exifFallback) || {};
+  ['focal','aperture','speed','iso'].forEach(function (k) {
+    var n = numValue(e[k]);
+    e[k] = (e[k] == null || e[k] === '' || !isFinite(n) || n <= 0) ? fallback[k] : n;
+  });
   return tpl.replace(/@\{(\w+)\}/g, function (_, k) {
     switch (k) {
       case 'model': case 'versionName': return CONFIG.model || CONFIG.metadata.modelDefault || '';
