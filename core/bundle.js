@@ -19,46 +19,295 @@ var APP = function (k, dflt) {
   return (a[k] != null && a[k] !== '') ? a[k] : dflt;
 };
 
-// 10-style: layout 节点 → CSS 样式对象（字段名即 CSS 属性名，纯数字 = dp）
-// 对照 p880yu：水平容器 Σ(子宽+margin_left) / 高 = max(子高+margin_top)；垂直容器反过来。
-var LAYOUT_PROPS = ['width','height','min-width','max-width','margin-top','margin-bottom','margin-left','margin-right',
-                    'padding-top','padding-bottom','padding-left','padding-right',
-                    'background-color','justify-content','align-items','align-self','flex-direction','flex','opacity'];
-var LEN_PROP = /^(margin-|padding-|width$|height$|min-width$|max-width$)/;
-var nodeStyle = function (n, font) {
-  var css = { boxSizing: 'border-box' };
-  LAYOUT_PROPS.forEach(function (p) {
-    if (n[p] != null) css[p] = LEN_PROP.test(p) ? DP(n[p]) : n[p];
-  });
-  if (n.padding) {
-    css['padding-top']    = DP(PAD(n.padding, 'top'));
-    css['padding-bottom'] = DP(PAD(n.padding, 'bottom'));
-    css['padding-left']   = DP(PAD(n.padding, 'left'));
-    css['padding-right']  = DP(PAD(n.padding, 'right'));
+// 05-layout: 通用布局引擎 —— 1:1 对应小米 APK 水印模板的布局模型（p880yu 规则）
+// 规范来源：/Users/alex.long/小米/leica_watermark_replica.py（Dim/px/parse_gravity/measure/place）
+//   · 尺寸：match_parent / wrap_content / Ndp / Npx / N%w / N%h
+//   · gravity 位标志：1=top 2=bottom 4=left 8=right 16=center_vertical 32=center_horizontal 48=center
+//   · 流式容器：水平 Σ(子宽+margin_left) 高=max(子高+margin_top)；垂直反之；overlap 两轴独立
+//   · 仅"宽度确定"的容器内，水平 right/center 才脱离流绝对定位；垂直方向同理（高度确定）
+//   · 交叉轴一律按 gravity 在容器内容盒里摆
+// 本项目扩展（APK 原生没有、但产品需要）：容器 padding_*（内容盒内缩）
+var LG_WRAP = -1, LG_MATCH = -2;
+var LG_GRAV = { top: 1, bottom: 2, left: 4, right: 8, center_vertical: 16, center_horizontal: 32, center: 48 };
+var LG_DIM_RE = /^(-?\d+\.?\d*)(dp|px|sp)?$/;
+var LG_W_RE = /^(\d+\.?\d*)%?[wW]$/;
+var LG_H_RE = /^(\d+\.?\d*)%?[hH]$/;
+
+var lgDim = function (spec, dflt) {
+  var d = (dflt === undefined) ? LG_WRAP : dflt;
+  if (spec == null || spec === '') return { v: d, u: '' };
+  var s = String(spec).trim();
+  if (s === 'wrap_content' || s === 'auto') return { v: LG_WRAP, u: '' };
+  if (s === 'match_parent' || s === '100%') return { v: LG_MATCH, u: '' };
+  var m = LG_DIM_RE.exec(s);
+  if (m) return { v: parseFloat(m[1]), u: m[2] || 'dp' };
+  var mw = LG_W_RE.exec(s), mh = LG_H_RE.exec(s);
+  if (mw) return { v: parseFloat(mw[1]), u: '%w' };
+  if (mh) return { v: parseFloat(mh[1]), u: '%h' };
+  var n = parseFloat(s);
+  return isFinite(n) ? { v: n, u: 'dp' } : { v: LG_WRAP, u: '' };
+};
+// dp → px（scale = unit）；px 原样；%w/%h 相对父约束；wrap/match 由布局期决定（返回 null）
+var lgPx = function (dim, scale, parent) {
+  if (dim.u === 'dp' || dim.u === '') return dim.v * scale;
+  if (dim.u === 'px' || dim.u === 'sp') return dim.v;
+  if (dim.u === '%w' || dim.u === '%h') return (parent || 0) * dim.v / 100.0;
+  return dim.v;
+};
+// margin_*/padding_* 的数值（dp），非法/缺失 = 0
+var lgNum = function (spec) {
+  if (spec == null || spec === '') return 0;
+  var d = lgDim(spec);
+  if (d.v === LG_WRAP || d.v === LG_MATCH) return 0;
+  if (d.u === 'px') return d.v;          // 统一按 dp 尺度处理（模板里 px 极少）
+  return d.v;
+};
+var lgGrav = function (s) {
+  var g = 0, toks = String(s || '').split('|');
+  for (var i = 0; i < toks.length; i++) g |= (LG_GRAV[toks[i].trim()] || 0);
+  return g;
+};
+
+// ---------------------------------------------------------------- 颜色（APK：#AARRGGBB / @foreground=N / @color=）
+var LG_NAMED = { black: '#000000', white: '#FFFFFF', transparent: 'transparent' };
+var lgRgba = function (argb, alphaScale) {
+  if (argb == null || argb === '') return null;
+  var s = String(argb).trim();
+  if (s.charAt(0) !== '#') return LG_NAMED[s] || s;
+  var h = s.slice(1);
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  var a = 1, r, g, b;
+  if (h.length === 8) { a = parseInt(h.slice(0, 2), 16) / 255; h = h.slice(2); }
+  r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 2 + 2), 16); b = parseInt(h.slice(4, 6), 16);
+  if (alphaScale != null) a = a * alphaScale;
+  if (a >= 0.999) return 'rgb(' + r + ',' + g + ',' + b + ')';
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + (Math.round(a * 1000) / 1000) + ')';
+};
+var lgAlphaOf = function (argb) {
+  var s = String(argb == null ? '' : argb).trim();
+  if (s.charAt(0) !== '#' || s.length !== 9) return 1;
+  return parseInt(s.slice(1, 3), 16) / 255;
+};
+// 主题调色板：preset.wmRes.backgrounds = [{name, value:"@color=#AARRGGBB", foreground:[...]}]
+var lgThemeOf = function (preset) {
+  var list = ((preset || {}).wmRes || {}).backgrounds || [];
+  for (var i = 0; i < list.length; i++) if (list[i].name === 'white') return list[i];
+  return list[0] || null;
+};
+var lgPalette = function (theme) { return (theme && theme.foreground) || []; };
+
+// ---------------------------------------------------------------- 文本占位符（APK fill_views 语义）
+// 模板写法： "@model= @{series}@{versionNumber}" / "@time=@wm_time_yyyy_MM_dd_HH_mm"
+//           "@exif=@{focal}mm  f/@{aperture}  @{speed}s  ISO@{iso}" / "@location=location_latlng;@locationLimit=0.8"
+var lgTextOf = function (node) {
+  var raw = String(node.text || '');
+  if (!raw) return '';
+  var eq = raw.indexOf('=');
+  var kind = raw.slice(0, eq).replace(/^@/, '');
+  var tpl = raw.slice(eq + 1);
+  if (kind === 'model') {
+    // @{logo} = 品牌字标（本项目不用）、@{versionNumber} APK 硬编码为空、@{versionName} = 版本名
+    return expand(tpl.replace(/@\{logo\}/g, '').replace(/@\{versionNumber\}/g, ''));
   }
-  if (n.flex == null) css['flex-shrink'] = 0;      // 引擎不压缩固定尺寸子项（分隔线 2dp 不能被挤掉）
-  var t = n.type;
-  if (t === 'row')    { css.display = 'flex'; css['flex-direction'] = 'row'; }
-  if (t === 'column') { css.display = 'flex'; css['flex-direction'] = 'column'; css['align-items'] = css['align-items'] || 'flex-start'; }
-  if (t === 'text' && font) {
-    css['font-family'] = font['font-family'];
-    css['font-size']   = DP(font['font-size']);        // px = size(dp) × scale（b.f()）
-    css['line-height'] = DP(font['line-height']);      // = (descent − ascent) × size（MiSans hhea）
-    css['min-height']  = DP(font['line-height']);      // 空文本视图仍占一行高（b.f() 不跳过）
-    css['font-weight'] = font['font-weight'];
-    css['white-space'] = 'pre';                        // EXIF/经纬度双空格 + 绝不换行
-    css['word-break']  = 'keep-all';
-    if (font.opacity != null) css.opacity = font.opacity;               // @foreground=2 ⇒ 50%
-    if (font['letter-spacing']) css['letter-spacing'] = font['letter-spacing'];  // em ⇒ 随字号缩放
-    if (n['text-align'] === 'right') css['align-self'] = 'flex-end';   // layout_gravity=right
+  if (kind === 'time') {
+    var key = tpl.split(';')[0].trim().replace(/^@/, '');
+    return fmtTime(CONFIG.date, TIME_FMT[key] || 'yyyy.MM.dd HH:mm');
   }
-  if (n.css) (n.css || '').split(';').forEach(function (kv) {          // 逃生舱：节点级 css 最后写入
-    var i = kv.indexOf(':'); if (i > 0) css[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
-  });
+  if (kind === 'exif') {
+    return expand(tpl.split(';')[0]);          // expand 内含 E0 语义：四项缺一即整行为空
+  }
+  if (kind === 'location') {
+    return tpl.indexOf('location_latlng') >= 0 ? latlng() : '';
+  }
+  if (kind === 'filter' || kind === 'custom') {
+    return '';                                  // 本项目不提供影像风格徽标 / 自定义签名
+  }
+  return '';
+};
+
+// ---------------------------------------------------------------- 视图树（APK childViews → view）
+var lgBuild = function (nodes) {
+  var out = [];
+  for (var i = 0; i < (nodes || []).length; i++) {
+    var n = nodes[i], v = {
+      id: n.id || '', type: n.type || '', orientation: n.orientation || 'horizontal',
+      gravity: 0, lw: lgDim(n.layout_width !== undefined ? n.layout_width : 'wrap_content'),
+      lh: lgDim(n.layout_height !== undefined ? n.layout_height : 'wrap_content'),
+      ml: lgNum(n.margin_left), mt: lgNum(n.margin_top),
+      pl: lgNum(n.padding_left), pt: lgNum(n.padding_top),
+      pr: lgNum(n.padding_right), pb: lgNum(n.padding_bottom),
+      background: n.background || null, children: [], text: '', font: null,
+      optional: !!n.optional, dw: lgDim(n.display_width, 0), dh: lgDim(n.display_height, 0),
+      maxW: (typeof n.max_width === 'number') ? n.max_width : null,
+      img: null, enabled: true, w: 0, h: 0, x: 0, y: 0, _t: null
+    };
+    if (v.type === 'Layout') {
+      v.gravity = lgGrav(n.gravity);
+      v.children = lgBuild(n.childViews);
+    } else if (v.type === 'TextView') {
+      v.gravity = lgGrav(n.layout_gravity);
+      v.text = n.text || '';
+      v.font = n.font_ref || null;
+    } else if (v.type === 'ImageView') {
+      v.gravity = lgGrav(n.layout_gravity);
+      v.src = n.path || '';
+    }
+    out.push(v);
+  }
+  return out;
+};
+
+// 图片视图：按 display_height/width 与素材宽高比求尺寸（复刻 measure 的 ImageView 分支；dp × unit → px）
+var lgSizeImage = function (v, aspect) {
+  var s = CONFIG.unit;
+  var dh = (v.dh.v === LG_WRAP || v.dh.v === LG_MATCH) ? 0 : v.dh.v * s;
+  var dw = (v.dw.v === LG_WRAP || v.dw.v === LG_MATCH) ? 0 : v.dw.v * s;
+  if (!v.img) { v.w = v.h = 0; v.enabled = false; return; }
+  if (dw > 0 && dh > 0) { v.w = dw; v.h = dh; }
+  else if (dh > 0) { v.w = dh * aspect; v.h = dh; }
+  else if (dw > 0) { v.w = dw; v.h = aspect > 0 ? dw / aspect : 0; }
+  else { v.w = v.img.w * s; v.h = v.img.h * s; }
+  if (v.maxW && v.w > v.maxW * s) { v.w = v.maxW * s; v.h = aspect > 0 ? v.w / aspect : v.h; }
+};
+
+var lgTextSize = function (v, sizeScale) {
+  var f = (CONFIG.fonts || {})[v.font] || null;
+  if (!f) { v.w = v.h = 0; return; }
+  var sizePx = f['font-size'] * CONFIG.unit * (sizeScale || 1);
+  v._t = { font: f, sizePx: sizePx, lh: f['line-height'] * CONFIG.unit };
+  var t = lgTextOf(v);
+  v._text = t;
+  var lines = String(t).split('\n');
+  var w = 0;
+  for (var i = 0; i < lines.length; i++) w = Math.max(w, lgTextWidth(lines[i], f, sizePx));
+  v.w = (f._indent ? 0 : 0) + w;
+  v.h = (f['line-height'] * CONFIG.unit) * lines.length;   // 空文本仍占一行高
+};
+
+var _lgCtx = null;
+var lgTextWidth = function (text, font, sizePx) {
+  if (_lgCtx == null) _lgCtx = document.createElement('canvas').getContext('2d');
+  var ls = parseFloat(font['letter-spacing']) || 0;        // em
+  _lgCtx.font = (font['font-weight'] || 400) + ' ' + sizePx + 'px ' + (font['font-family'] || 'sans-serif');
+  var w = _lgCtx.measureText(text).width;
+  return w + ls * sizePx * String(text).length;            // CSS/Paint 每字符都补一个 letterSpacing
+};
+
+var lgMeasure = function (v, pw, ph, sizeScale) {
+  var s = CONFIG.unit;
+  if (v.type === 'Layout') {
+    var pcw = (v.lw.v !== LG_WRAP && v.lw.v !== LG_MATCH) ? lgPx(v.lw, s, pw) : pw;
+    var pch = (v.lh.v !== LG_WRAP && v.lh.v !== LG_MATCH) ? lgPx(v.lh, s, ph) : ph;
+    for (var i = 0; i < v.children.length; i++) lgMeasure(v.children[i], pcw, pch, sizeScale);
+    var w = 0, h = 0;
+    for (var j = 0; j < v.children.length; j++) {
+      var c = v.children[j];
+      if (!c.enabled) continue;
+      var ml = Math.max(0, c.ml) * s, mt = Math.max(0, c.mt) * s;
+      if (v.orientation === 'horizontal') { w += c.w + ml; h = Math.max(h, c.h + mt); }
+      else if (v.orientation === 'overlap') { w = Math.max(w, c.w + ml); h = Math.max(h, c.h + mt); }
+      else { h += c.h + mt; w = Math.max(w, c.w + ml); }
+    }
+    if (v.lw.v === LG_MATCH) w = pw || w; else if (v.lw.v !== LG_WRAP) w = lgPx(v.lw, s, pw);
+    if (v.lh.v === LG_MATCH) h = ph || h; else if (v.lh.v !== LG_WRAP) h = lgPx(v.lh, s, ph);
+    v.w = w + v.pl * s + v.pr * s;                 // 本项目扩展：内容盒 + padding
+    v.h = h + v.pt * s + v.pb * s;
+  } else if (v.type === 'ImageView') {
+    lgSizeImage(v, v._aspect || 1);
+  } else if (v.type === 'TextView') {
+    lgTextSize(v, sizeScale);
+  }
+};
+
+// 摆放：把 v 的子项在 v 的内容盒里摆好（复刻 place()）
+var lgPlace = function (v) {
+  var s = CONFIG.unit;
+  var ox = v.pl * s, oy = v.pt * s;                 // 内容盒原点（本项目扩展）
+  var W = v.w - v.pl * s - v.pr * s, H = v.h - v.pt * s - v.pb * s;
+  var defW = (v.lw.v === LG_MATCH), defH = (v.lh.v === LG_MATCH);   // 复刻 place(): 仅 match_parent 才脱离流
+  var horiz = v.orientation === 'horizontal', cursor = 0;
+  for (var i = 0; i < v.children.length; i++) {
+    var c = v.children[i];
+    if (!c.enabled) continue;
+    var g = c.gravity, ml = c.ml * s, mt = c.mt * s;
+    if (v.orientation === 'overlap') {
+      if (g & 32) c.x = ox + (W - c.w) / 2 + ml;
+      else if (g & 8) c.x = ox + W - c.w + ml;
+      else c.x = ox + ml;
+      if (g & 16) c.y = oy + (H - c.h) / 2 + mt;
+      else if (g & 2) c.y = oy + H - c.h + mt;
+      else c.y = oy + mt;
+    } else if (horiz) {
+      if (defW && (g & 8)) c.x = ox + W - c.w + ml;
+      else if (defW && (g & 32)) c.x = ox + (W - c.w) / 2 + ml;
+      else { c.x = ox + cursor + ml; cursor += c.w + ml; }
+      if (g & 16) c.y = oy + (H - c.h) / 2 + mt;
+      else if (g & 2) c.y = oy + H - c.h + mt;
+      else c.y = oy + mt;
+    } else {
+      if (g & 32) c.x = ox + (W - c.w) / 2 + ml;
+      else if (g & 8) c.x = ox + W - c.w + ml;
+      else c.x = ox + ml;
+      if (defH && (g & 2)) c.y = oy + H - c.h + mt;
+      else if (defH && (g & 16)) c.y = oy + (H - c.h) / 2 + mt;
+      else { c.y = oy + cursor + mt; cursor += c.h + mt; }
+    }
+    lgPlace(c);
+  }
+};
+
+// 展平成绝对坐标列表（父级偏移累加）
+var lgFlatten = function (v, out, ox, oy) {
+  if (out == null) { out = []; ox = 0; oy = 0; }
+  v.ax = ox + v.x; v.ay = oy + v.y;
+  out.push(v);
+  for (var i = 0; i < v.children.length; i++) lgFlatten(v.children[i], out, v.ax, v.ay);
+  return out;
+};
+
+// 10-style: view 树 → 绝对定位的 CSS（坐标由 05-layout 的 measure/place 算好）
+// 小米引擎用绝对坐标画布绘制（p880yu），这里同构：每个节点 = 一个绝对定位的盒子，
+// 位置/尺寸 = 布局引擎算出的 px（dp × unit），不再依赖 flex 猜尺寸。
+var ABS_BOX = function (v) {
+  return {
+    position: 'absolute',
+    left: v.ax + 'px', top: v.ay + 'px',
+    width: v.w + 'px', height: v.h + 'px',
+    boxSizing: 'border-box'
+  };
+};
+
+// 文本：字体度量仍按设计字体（MiSans：ascent 1.044em / descent 0.282em，行高 = 1.326×size）
+var textCss = function (v) {
+  var css = ABS_BOX(v), f = v._t.font;
+  css.fontFamily = f['font-family'];
+  css.fontSize = v._t.sizePx + 'px';
+  css.lineHeight = v._t.lh + 'px';
+  css.fontWeight = f['font-weight'];
+  css.whiteSpace = 'pre';                          // EXIF/经度双空格 + 绝不换行
+  css.overflow = 'visible';
+  if (f['letter-spacing']) css.letterSpacing = f['letter-spacing'];
+  if (f.opacity != null) css.opacity = f.opacity;
+  if (f.shadow) css.textShadow = f.shadow;
+  var align = f.textAlign || (v.gravity & 8 ? 'right' : (v.gravity & 32 ? 'center' : 'left'));
+  css.textAlign = align;
   return css;
 };
 
-// 20-build: layout 树 → DOM
+// 节点自身的填充：
+//   "@foreground=N" = 前景色条（分隔线）—— 用样式渐变 + line-opacity
+//   "@background=name" = 主题底色 —— 本项目由 styles 的 background-color 统一决定，节点不再刷一层
+var fillFor = function (v) {
+  var bg = v.background;
+  if (!bg) return null;
+  if (bg.indexOf('@foreground=') === 0) {
+    var idx = parseInt(bg.split('=')[1], 10) || 0;
+    return { gradient: true, opacity: (idx === 1) ? APP('line-opacity', 1) : 1 };
+  }
+  return null;
+};
+
+// 20-build: view 树 → 绝对定位 DOM
 // 图片：内联 SVG（只有内联才吃得到模板 CSS/渐变，见踩坑 §4.5）；
 //       纯色标（fill=currentColor / 无 fill）走样式渐变，品牌色标（Leica/Nikon/ZEISS）保留自带填色。
 var SVG_GRADIENT_ID = 'wm-fg-gradient';
@@ -92,74 +341,84 @@ var paintGradient = function (svg) {
   }
 };
 
-var buildNode = function (n) {
-  var font = FONT(n);
-  var css  = nodeStyle(n, font);
-  var t = n.type;
-
-  if (t === 'divider') {                                  // 2dp × 64dp 色块（@foreground=1）
-    var d = EL('div', css);
-    d.style.backgroundImage = 'linear-gradient(' + APP('foreground-direction', '90deg') + ',var(--foreground-start) ' +
-                              APP('foreground-stop', '0%') + ',var(--foreground-end))';
-    if (css.opacity == null) d.style.opacity = APP('line-opacity', 1);   // @foreground=1 的 alpha
-    d.setAttribute('data-id', n.id);
-    return d;
-  }
-
-  if (t === 'image') {
-    var box = EL('div', css);
-    box.style.display = 'flex';
-    box.style.alignItems = 'center';
-    box.setAttribute('data-id', n.id);
-    var src = document.getElementById('wm-logo-src');
-    var svg = src ? src.innerHTML : '';
-    if (svg) {
-      box.innerHTML = svg;                                // 内联 SVG
-      var inner = box.querySelector('svg');
-      if (inner) {
-        // 尺寸算死：高 = 节点 dp×unit，宽 = 高 × 宽高比（viewBox 优先）。
-        // 不靠 width:auto（WebKit 对 inline SVG 的 auto 宽度解析与 Chrome 不一致 ⇒ 可能显示不全）
-        var h = (typeof n.height === 'number' ? n.height * CONFIG.unit : 0) || 0;
-        var vb = (inner.getAttribute('viewBox') || '').split(/[\s,]+/).map(parseFloat);
-        var ratio = (vb.length === 4 && vb[2] > 0 && vb[3] > 0) ? vb[2] / vb[3]
-                  : (parseFloat(inner.getAttribute('width')) > 0 && parseFloat(inner.getAttribute('height')) > 0)
-                    ? parseFloat(inner.getAttribute('width')) / parseFloat(inner.getAttribute('height')) : 1;
-        var w = h * ratio;
-        // 安全宽度（节点 max-width，dp）：宽标（哈苏 821dp / SONY 363dp / Canon 304dp）不能挤爆行。
-        // 逻辑是高度逻辑的镜像：安全宽度内以高为准；超过就以宽为准，反推高度（保持比例）
-        var maxW = (typeof n['max-width'] === 'number' ? n['max-width'] * CONFIG.unit : 0) || 0;
-        if (maxW > 0 && w > maxW) { w = maxW; h = ratio > 0 ? w / ratio : h; }
-        if (h > 0) {
-          inner.setAttribute('width', w); inner.setAttribute('height', h);
-          inner.style.width = w + 'px'; inner.style.height = h + 'px';
-          inner.style.display = 'block';
-          box.style.width = w + 'px';
-          box.style.height = h + 'px';
-          box.style.flex = '0 0 ' + w + 'px';
-          box.setAttribute('data-ratio', ratio.toFixed(4));
-        }
-        inner.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-        paintGradient(inner);
+// 素材挂载：品牌标来自页面里的 #wm-logo-src（快捷指令注入的 SVG）；缺失 ⇒ 视图不渲染（enabled=false）
+var lgAssets = function (root) {
+  var walk = function (v) {
+    if (v.type === 'ImageView') {
+      if (String(v.id).indexOf('src_image') === 0) {         // 照片层：由快捷指令在外层合成，引擎不画
+        v.enabled = false; v.img = null;
+      } else {
+        var svg = (document.getElementById('wm-logo-src') || {}).innerHTML || '';
+        var box = document.createElement('div');
+        box.innerHTML = svg;
+        var inner = box.querySelector('svg');
+        if (inner) {
+          var vb = (inner.getAttribute('viewBox') || '').split(/[\s,]+/).map(parseFloat);
+          var ratio = (vb.length === 4 && vb[2] > 0 && vb[3] > 0) ? vb[2] / vb[3]
+            : (parseFloat(inner.getAttribute('width')) > 0 && parseFloat(inner.getAttribute('height')) > 0)
+              ? parseFloat(inner.getAttribute('width')) / parseFloat(inner.getAttribute('height')) : 1;
+          v.img = { w: 1, h: 1 }; v._aspect = ratio; v._svg = svg;
+        } else { v.img = null; v.enabled = false; }
       }
     }
-    if (n.optional && !svg) box.style.display = 'none';   // 素材缺失 ⇒ 视图不渲染
-    return box;
-  }
+    for (var i = 0; i < v.children.length; i++) walk(v.children[i]);
+  };
+  for (var i = 0; i < root.length; i++) walk(root[i]);
+};
 
-  if (t === 'text') {
-    var txt = expand(n.text);
-    var e = EL('div', css, txt || '');
+var lgNodeDom = function (v) {
+  if (!v.enabled) { var skip = EL('div', { display: 'none' }); skip.setAttribute('data-id', v.id); return skip; }
+  if (v.type === 'TextView') {
+    var e = EL('div', textCss(v), v._text || '');
     e.className = 'tn';
-    e.setAttribute('data-id', n.id);
-    e.setAttribute('data-fs', DP(font ? font['font-size'] : 0));
-    e.setAttribute('data-font', n.font || '');
+    e.setAttribute('data-id', v.id);
+    e.setAttribute('data-fs', (v._t.sizePx) + 'px');
+    e.setAttribute('data-font', v.font || '');
     return e;
   }
+  if (v.type === 'ImageView') {
+    var box = EL('div', ABS_BOX(v));
+    box.setAttribute('data-id', v.id);
+    if (v._svg) {
+      box.innerHTML = v._svg;
+      var inner = box.querySelector('svg');
+      if (inner) {
+        inner.setAttribute('width', v.w); inner.setAttribute('height', v.h);
+        inner.style.width = v.w + 'px'; inner.style.height = v.h + 'px';
+        inner.style.display = 'block';
+        inner.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        paintGradient(inner);
+        box.setAttribute('data-ratio', (v._aspect || 1).toFixed(4));
+      }
+    }
+    return box;
+  }
+  // Layout
+  var d = EL('div', ABS_BOX(v));
+  d.setAttribute('data-id', v.id);
+  var fill = fillFor(v);
+  if (fill && fill.gradient) {
+    d.style.backgroundImage = 'linear-gradient(' + APP('foreground-direction', '90deg') + ',var(--foreground-start) ' +
+      APP('foreground-stop', '0%') + ',var(--foreground-end))';
+    if (fill.opacity != null) d.style.opacity = fill.opacity;
+  }
+  return d;
+};
 
-  var row = EL('div', css);                               // row / column
-  row.setAttribute('data-id', n.id);
-  (n.children || []).forEach(function (c) { row.appendChild(buildNode(c)); });
-  return row;
+// 布局 + 建树：返回 {tree, views}（views = 绝对坐标展平列表）
+var lgLayout = function (nodes, sizeScale) {
+  var tree = lgBuild(nodes);
+  lgAssets(tree);
+  var W = (typeof BAND_W === 'number' && BAND_W > 0) ? BAND_W : 0;
+  var H = (typeof BAND_H === 'number' && BAND_H > 0) ? BAND_H : 0;
+  var views = [];
+  for (var i = 0; i < tree.length; i++) {
+    lgMeasure(tree[i], W, H, sizeScale);
+    tree[i].x = 0; tree[i].y = 0;                    // 根节点贴页面左上角，子项在它自己的内容盒里摆
+    lgPlace(tree[i]);
+    lgFlatten(tree[i], views, 0, 0);
+  }
+  return { tree: tree, views: views, W: W, H: H };
 };
 
 // 30-format: token 展开（唯一权威表见文档 §5.3；时间格式表 = 小米 arsc 字符串池）
@@ -239,6 +498,8 @@ var expand = function (tpl) {
   return tpl.replace(/@\{(\w+)\}/g, function (_, k) {
     switch (k) {
       case 'model':      return CONFIG.model || (CONFIG.fallback || {}).model || '';
+      case 'series':     return CONFIG.model || (CONFIG.fallback || {}).model || '';   // APK: @{series} = 机型串
+      case 'versionNumber': return '';                                                  // APK 里硬编码为空
       case 'versionName':return CONFIG.versionName || '';
       case 'focal':      return fmtFixed(pickNum('focal'), 0);
       case 'focalActual':return fmtFixed(numValue(CONFIG.focalActual), 2);
@@ -252,61 +513,11 @@ var expand = function (tpl) {
   });
 };
 
-// 90-boot: 入口 —— RUNTIME → CONFIG → 选 layout 变体 → CSS 变量 → 建 DOM → 防溢出
+// 90-boot: 入口 —— RUNTIME → CONFIG → 选 layout 变体 → CSS 变量 → 绝对定位建树 → 防挤压
 (function () {
   var fail = function (msg) {
     var b = document.getElementById('wm-error');
     if (b) { b.style.display = 'block'; b.textContent = 'watermark error: ' + msg; }
-  };
-  var fit = function (root) {                 // JS 缩字号：防文本换行 / 防右组被挤到左列上（§4.3 前提：文本单行）
-    var nodes = root.querySelectorAll('.tn');
-    var i, base = [];
-    for (i = 0; i < nodes.length; i++) {      // 每次都从"基准字号"（data-fs）量起：重复调用幂等，
-      base[i] = parseFloat(nodes[i].getAttribute('data-fs')) || 0;   // 不会把上一次（比如字体没就绪时）的误判留下
-      if (base[i]) nodes[i].style.fontSize = base[i] + 'px';
-    }
-    var factor = 1;
-    for (var pass = 0; pass < 3; pass++) {
-      var k = 1;
-      var sw = root.scrollWidth, cw = root.clientWidth;
-      if (sw && cw && sw - cw > 1) k = cw / sw;                     // ① 右溢出（内容比行还宽）
-      // ② 左列 + 右组内容 > 行内容区 ⇒ flex-end 会把右组往左推（logo 压到机型文字上、甚至出画布）。
-      //    这种"向左溢出"不会让 scrollWidth 变大，① 抓不到 ⇒ 用两个组的**内容实际范围**量一次。
-      //    只有文字会随字号缩（logo/分隔线/间距是固定 dp），所以一次算出 k = (可用 − 固定部分) / 文字部分
-      var row = root.querySelector('[data-id=bottom_layout]');
-      var lcol = root.querySelector('[data-id=left_bottom_layout]');
-      var rgrp = root.querySelector('[data-id=right_bottom_group]');
-      if (row && lcol && rgrp) {
-        // 只看**可见**子项：没选 logo 时 logo 节点是 display:none，rect 全 0，会把 head.left 当成 0
-        var kids = rgrp.children, head = null, tail = null;
-        for (var ci = 0; ci < kids.length; ci++) {
-          var kb = kids[ci].getBoundingClientRect();
-          if (kb.width <= 0) continue;
-          if (!head) head = kb;
-          tail = kb;
-        }
-        if (head && tail) {
-          var rr = row.getBoundingClientRect(), lr = lcol.getBoundingClientRect();
-          // 右组自带 margin-left（机型文字 ↔ 品牌标的最小间隙）⇒ 可用宽度要扣掉它，
-          // 否则 fit 会缩到"刚好塞下"，两段内容贴死（长标时看起来像叠在一起）
-          var gap = parseFloat((window.getComputedStyle ? getComputedStyle(rgrp) : rgrp.style).marginLeft) || 0;
-          var avail = rr.width - (lr.left - rr.left) - (rr.right - tail.right) - gap;
-          var content = lr.width + (tail.right - head.left);
-          if (content > avail + 0.5) {
-            var textPart = lr.width + tail.width;                      // 会随字号缩的部分
-            var fixedPart = content - textPart;                        // logo + 间距（不缩）
-            var kk = textPart > 0 ? (avail - fixedPart) / textPart : 1;
-            k = Math.min(k, Math.max(0.4, kk));
-          }
-        }
-      }
-      if (k >= 0.999) return;
-      factor *= k;
-      root.setAttribute('data-fit', '1');
-      for (i = 0; i < nodes.length; i++) {
-        if (base[i]) nodes[i].style.fontSize = (base[i] * factor) + 'px';
-      }
-    }
   };
   try {
     // 1) 运行时值合并进 CONFIG（扁平注入，见踩坑 §18.3）
@@ -320,10 +531,10 @@ var expand = function (tpl) {
     // 2) 选中样式（快捷指令从该 preset 的 styles 里挑一款传进来）→ 改写 CONFIG.appearance，见 §4.5
     var ap = CONFIG.appearance = CONFIG.appearance || {};
     var APP_KEYS = ['foreground-start','foreground-end','foreground-stop','foreground-direction',
-                    'line-opacity','background-color','background-image','background-fit'];
+                    'line-opacity','background-color','background-image','background-fit','text-shadow'];
     for (var a = 0; a < APP_KEYS.length; a++) {
-      var k = APP_KEYS[a];
-      if (OVERRIDE && OVERRIDE[k] !== '' && OVERRIDE[k] != null) ap[k] = OVERRIDE[k];
+      var ak = APP_KEYS[a];
+      if (OVERRIDE && OVERRIDE[ak] !== '' && OVERRIDE[ak] != null) ap[ak] = OVERRIDE[ak];
     }
     var st = document.documentElement.style;
     st.setProperty('--background-color', APP('background-color', '#FFFFFF'));
@@ -333,53 +544,77 @@ var expand = function (tpl) {
     st.setProperty('--foreground-direction', APP('foreground-direction', '90deg'));
 
     var root = document.getElementById('wm-root');
-    // 背景图：快捷指令注入 data URI（style 里的 background-image = assets/background/<id>.png）；
-    // 背景图的缩放/定位：默认由模板静态 CSS 给 cover/center/no-repeat；
-    //   cover   = 不变形、铺满、居中裁切（默认，适合照片/图案）
-    //   repeat  = 高度铺满 + 按原比例横向平铺（适合纸纹/布料这类可平铺素材）
-    //   stretch = 拉满整条带（素材本身就是按带子比例设计的才用，比如 1px 竖渐变）
-    // 背景图：由模板里的【静态 CSS 规则】承载（#wm-root 的 background-image 用占位符 @@BACKGROUND_IMAGE@@ 填），
-    // 这里只保证尺寸变量可用；不再运行时创建 <style>（V11 也是静态规则 + 值由快捷指令注入）。
+    // 背景图：快捷指令注入 BG_URI（纯 base64，或历史/本地校验用的完整 data URI）；
+    // 缩放/定位由模板静态 CSS 给 cover/center/no-repeat，再按 background-fit 用内联样式覆盖。
     var bandW = (typeof BAND_W === 'number' && BAND_W > 0) ? BAND_W : 0;
     var bandH = (typeof BAND_H === 'number' && BAND_H > 0) ? BAND_H : 0;
-    // BG_URI 现在是【纯 base64】（不带 data: 前缀），前缀在这里拼 —— 避开真机上带插值字面量赋值会变空的问题
-    // BG_URI 兼容两种传法：纯 base64（真机现在的做法）或完整 data URI（本地校验/历史版本）
     var bgRaw = BG_URI || '';
     var backgroundImage = (bgRaw.length > 64)
       ? (bgRaw.indexOf('data:') === 0 ? bgRaw : ('data:image/png;base64,' + bgRaw))
       : '';
     if (bandW && bandH) { root.style.width = bandW + 'px'; root.style.height = bandH + 'px'; }
-
-    // 背景图：值放在 JS 字符串里（BG_URI），再用 setProperty 设成 CSS 变量 ——
-    // 与 iPhone 水印V11 完全同构（themes.bgImage = 'url("data:...")' + root.style.setProperty('--bg-image', …)）。
-    // 不把 data URI 直接写进 CSS 文本：那条 HTML→富文本→图片 转换会丢/截断 CSS 里的长 data URI。
     if (backgroundImage) {
       document.documentElement.style.setProperty('--bg-image', 'url("' + backgroundImage + '")');
-      // background-fit 生效：cover（默认）/ stretch / repeat（模板 CSS 里是 cover，这里用内联样式覆盖）
       var bgFit = APP('background-fit', 'cover');
       root.style.backgroundSize = (bgFit === 'stretch') ? '100% 100%' : (bgFit === 'repeat') ? 'auto 100%' : 'cover';
       root.style.backgroundPosition = 'center';
-      root.style.backgroundRepeat = (bgFit === 'repeat') ? 'repeat-x' : 'no-repeat';   // 与 V11 一致：设在 <html> 上，靠继承传给 #wm-root
-      // background-size/position/repeat 已写在模板的静态 CSS 里（cover/center/no-repeat，与 V11 一致）
+      root.style.backgroundRepeat = (bgFit === 'repeat') ? 'repeat-x' : 'no-repeat';
     }
 
-    // 3) layout 变体：lat/lon 均非空 ⇒ layout；任一为空 ⇒ layout_loc_off（§5.3）
-    var gps = hasGps(), variants = CONFIG.layout_group || [], pick = null;
-    for (var v = 0; v < variants.length; v++) {
-      var name = Object.keys(variants[v])[0];
-      if (name === (gps ? 'layout' : 'layout_loc_off')) { pick = variants[v][name]; break; }
+    // 3) 选 layout 变体：有 layout / layout_loc_off 两个就按 GPS 有无二选一；
+    //    单变体（如 91 号的 center_top）直接用；多而非常规命名时取第一个。
+    var gps = hasGps(), variants = CONFIG.layout_group || [], pick = null, pickName = '';
+    var names = [];
+    for (var v = 0; v < variants.length; v++) names.push(Object.keys(variants[v])[0]);
+    var want = gps ? 'layout' : 'layout_loc_off';
+    if (names.indexOf(want) >= 0) pickName = want;
+    else pickName = names.length ? names[0] : '';
+    for (var w = 0; w < variants.length; w++) {
+      if (Object.keys(variants[w])[0] === pickName) { pick = variants[w][pickName]; break; }
     }
-    if (!pick && variants.length) pick = variants[variants.length - 1][Object.keys(variants[variants.length - 1])[0]];
     if (!pick) throw new Error('layout_group 为空');
 
-    // 4) 建 DOM + 防溢出
-    for (var n = 0; n < pick.length; n++) root.appendChild(buildNode(pick[n]));
-    fit(root);
-    root.setAttribute('data-variant', gps ? 'layout' : 'layout_loc_off');
-    // 字体可能晚到（本地对照模式用 @font-face 加载 MiSans）⇒ 就绪后再 fit 一次；
-    // fit() 每次从 data-fs 基准量起，幂等，不会把"字体没就绪时"的误判留下
+    // 4) 通用布局引擎：measure/place（绝对坐标）→ DOM。文字被挤时按比例缩字号重排（幂等）
+    var renderPass = function (sizeScale) {
+      while (root.firstChild) root.removeChild(root.firstChild);
+      var L = lgLayout(pick, sizeScale);
+      for (var n = 0; n < L.views.length; n++) root.appendChild(lgNodeDom(L.views[n]));
+      return L;
+    };
+    // 防挤压：同一水平容器里相邻子项横向重叠 ⇒ 缩字号重排（小米引擎无此逻辑，是本项目的兜底）
+    var overlapFactor = function (L) {
+      var worst = 1;
+      var walk = function (v) {
+        if (v.type === 'Layout' && v.orientation === 'horizontal') {
+          var vis = [];
+          for (var i = 0; i < v.children.length; i++) {
+            var c = v.children[i];
+            if (c.enabled && c.w > 1) vis.push(c);
+          }
+          for (var j = 1; j < vis.length; j++) {
+            var a = vis[j - 1], b = vis[j];
+            var ov = (a.ax + a.w) - b.ax;
+            if (ov > 0.5) {
+              var span = a.w + b.w;
+              if (span > 0) worst = Math.min(worst, Math.max(0.4, (span - ov) / span));
+            }
+          }
+        }
+        for (var m = 0; m < v.children.length; m++) walk(v.children[m]);
+      };
+      for (var t = 0; t < L.tree.length; t++) walk(L.tree[t]);
+      return worst;
+    };
+    var L = renderPass(1);
+    for (var pass = 0; pass < 3; pass++) {
+      var f = overlapFactor(L);
+      if (f >= 0.999) break;
+      root.setAttribute('data-fit', '1');
+      L = renderPass(f);
+    }
+    root.setAttribute('data-variant', pickName);
     if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
-      document.fonts.ready.then(function () { try { fit(root); } catch (e) {} });
+      document.fonts.ready.then(function () { try { renderPass(root.getAttribute('data-fit') === '1' ? 0.9 : 1); } catch (e) {} });
     }
   } catch (e) {
     fail(e && e.message ? e.message : String(e));
