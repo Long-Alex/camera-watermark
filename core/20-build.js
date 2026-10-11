@@ -25,7 +25,10 @@ var paintGradient = function (svg) {
   var shapes = svg.querySelectorAll(GRADIENT_SHAPES);
   for (var i = 0; i < shapes.length; i++) {
     if (wantsPaint(shapes[i].getAttribute('fill'))) shapes[i].setAttribute('fill', 'url(#' + SVG_GRADIENT_ID + ')');
-    if (wantsPaint(shapes[i].getAttribute('stroke'))) shapes[i].setAttribute('stroke', 'url(#' + SVG_GRADIENT_ID + ')');
+    var strokeAttr = shapes[i].getAttribute('stroke');          // ⚠ 没写 stroke 的图形不能再补描边（会描出一圈黑框）
+    if (strokeAttr != null && strokeAttr !== 'none' && wantsPaint(strokeAttr)) {
+      shapes[i].setAttribute('stroke', 'url(#' + SVG_GRADIENT_ID + ')');
+    }
   }
 };
 
@@ -54,11 +57,24 @@ var buildNode = function (n) {
       box.innerHTML = svg;                                // 内联 SVG
       var inner = box.querySelector('svg');
       if (inner) {
-        inner.style.height = '100%'; inner.style.width = 'auto';
-        inner.setAttribute('height', '100%'); inner.removeAttribute('width');
-        if (!inner.getAttribute('viewBox') && !(inner.getAttribute('width') && inner.getAttribute('height'))) {
-          box.style.width = DP(n.height || 0);            // 无 viewBox 的兜底：方形盒
+        // 尺寸算死：高 = 节点 dp×unit，宽 = 高 × 宽高比（viewBox 优先）。
+        // 不靠 width:auto（WebKit 对 inline SVG 的 auto 宽度解析与 Chrome 不一致 ⇒ 可能显示不全）
+        var h = (typeof n.height === 'number' ? n.height * CONFIG.unit : 0) || 0;
+        var vb = (inner.getAttribute('viewBox') || '').split(/[\s,]+/).map(parseFloat);
+        var ratio = (vb.length === 4 && vb[2] > 0 && vb[3] > 0) ? vb[2] / vb[3]
+                  : (parseFloat(inner.getAttribute('width')) > 0 && parseFloat(inner.getAttribute('height')) > 0)
+                    ? parseFloat(inner.getAttribute('width')) / parseFloat(inner.getAttribute('height')) : 1;
+        var w = h * ratio;
+        if (h > 0) {
+          inner.setAttribute('width', w); inner.setAttribute('height', h);
+          inner.style.width = w + 'px'; inner.style.height = h + 'px';
+          inner.style.display = 'block';
+          box.style.width = w + 'px';
+          box.style.height = h + 'px';
+          box.style.flex = '0 0 ' + w + 'px';
+          box.setAttribute('data-ratio', ratio.toFixed(4));
         }
+        inner.setAttribute('preserveAspectRatio', 'xMidYMid meet');
         paintGradient(inner);
       }
     }

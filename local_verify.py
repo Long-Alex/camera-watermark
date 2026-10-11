@@ -118,7 +118,10 @@ PROBE = r"""
     fontsize[tns[t].getAttribute('data-id')] = { size: parseFloat(getComputedStyle(tns[t]).fontSize),
                                                  font: tns[t].getAttribute('data-font') };
   }
-  var out = { unit: u, boxes: boxes, texts: texts, fontsize: fontsize,
+  var logoEl = root.querySelector('[data-id=logo]');
+  var out = { logoStrokes: logoEl ? logoEl.querySelectorAll('[stroke]').length : 0,
+              logoShapes: logoEl ? logoEl.querySelectorAll('path,rect,circle,ellipse,polygon,polyline,use,line').length : 0,
+              unit: u, boxes: boxes, texts: texts, fontsize: fontsize,
               fitted: root.getAttribute('data-fit') === '1',
               doc: {w: document.documentElement.clientWidth, h: document.documentElement.clientHeight},
               root: { clientWidth: root.clientWidth, scrollWidth: root.scrollWidth, h: root.getBoundingClientRect().height },
@@ -325,7 +328,8 @@ def main():
         rctx = dict(photo_w=case["W"], photo_h=case["H"], model=case["model"], date=case["date"],
                     exif=case.get("exif") or {}, lat=(case["gps"][0] if case.get("gps") else None),
                     lon=(case["gps"][1] if case.get("gps") else None),
-                    fallback=preset.get("fallback"))
+                    fallback=preset.get("fallback"),
+                    )
         ref_boxes, ref_meta = ref_layout.expected(rctx, variant=variant, logo_id=logo or "Leica")
 
         res = dict(case=case, unit=unit, req_w=req_w, band_h=band_h, band_dp=band_dp, variant=variant,
@@ -337,6 +341,7 @@ def main():
             failures += 1
             continue
         fails = check(res, preset, case)
+        fails += check_logo_paint(rep, case)
         fails += check_pixels(res, preset, case, style_id)
         if "want_divider" in res:
             res.pop("want_divider")
@@ -401,6 +406,24 @@ def check_pixels(res, preset, case, style_id):
             ink = sum(1 for c in px if max(abs(c[0] - want[0]), abs(c[1] - want[1]), abs(c[2] - want[2])) > 40)
             if ink < len(px) * 0.02:
                 fails.append(f"logo 区域几乎没有图形（{ink}/{len(px)}）")
+
+    return fails
+
+
+def check_logo_paint(rep, case):
+    """素材没写 stroke ⇒ 绘制后不该有任何 stroke（防"给没写描边的图形补描边"= 黑框回归）"""
+    fails = []
+    if not case.get("logo"):
+        return fails
+    asset = (R / "assets" / "logo" / f"{case['logo']}.txt").read_text(errors="ignore")
+    want = asset.count("stroke=")
+    got = rep.get("logoStrokes", 0)
+    if want == 0 and got > 0:
+        fails.append(f"logo 素材没有 stroke，绘制后却出现 {got} 个 stroke（被补描边/黑框）")
+    elif got > want:
+        fails.append(f"logo stroke 数量 {got} > 素材 {want}")
+    if got and not rep.get("logoShapes"):
+        fails.append("logo 图形节点为 0，SVG 可能没内联成功")
     return fails
 
 
@@ -450,11 +473,12 @@ def check(res, preset, case):
     if case.get("logo") and logo is None:
         fails.append("选了 logo 但节点缺失")
     if logo:
-        if not close(logo["h"], 64 * u, 1.0):
-            fails.append(f"logo 高 {logo['h']:.2f} ≠ 64dp({64*u:.2f})")
-        want_w = 64 * u * ref["leica"]["w"] / ref["leica"]["h"]
+        ratio = ref["leica"]["w"] / ref["leica"]["h"]
+        want_h, want_w = 64 * u, 64 * u * ratio
         if not close(logo["w"], want_w, max(1.5, want_w * 0.03)):
-            fails.append(f"logo 宽 {logo['w']:.2f} ≠ {want_w:.2f}(比例)")
+            fails.append(f"logo 宽 {logo['w']:.2f} ≠ {want_w:.2f}(比例/上限)")
+        if not close(logo["h"], want_h, max(1.5, want_h * 0.03)):
+            fails.append(f"logo 高 {logo['h']:.2f} ≠ {want_h:.2f}")
 
     # ⑤ 分隔线 2dp×64dp，间距 24dp
     if line and col:
@@ -529,7 +553,8 @@ def check(res, preset, case):
                                               exif=case.get("exif") or {},
                                               lat=(case["gps"][0] if case.get("gps") else None),
                                               lon=(case["gps"][1] if case.get("gps") else None),
-                                              fallback=preset.get("fallback")))
+                                              fallback=preset.get("fallback"),
+                    ))
                 for k in ("model", "time", "exif", "location")}
     for k in ("model", "time", "exif", "location"):
         if not case.get("date") and k == "time":
