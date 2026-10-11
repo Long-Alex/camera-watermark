@@ -1,0 +1,226 @@
+{
+  "version": "",
+  "metadata": {
+    "id": "minimal",
+    "designShort": 1080,
+    "bandDpByVariant": {
+      "layout": 306.6,
+      "layout_loc_off": 264.8
+    }
+  },
+  "type": {
+    "纯白": "white",
+    "墨黑": "black",
+    "琥珀": "amber",
+    "绯红": "crimson"
+  },
+  "styles": {
+    "white": {
+      "foreground-start": "#141414",
+      "foreground-end": "#141414",
+      "foreground-stop": "0%",
+      "foreground-direction": "90deg",
+      "line-opacity": 0.35,
+      "background-color": "#F7F6F3"
+    },
+    "black": {
+      "foreground-start": "#FFFFFF",
+      "foreground-end": "#FFFFFF",
+      "foreground-stop": "0%",
+      "foreground-direction": "90deg",
+      "line-opacity": 0.45,
+      "background-color": "#101012"
+    },
+    "amber": {
+      "foreground-start": "#FFD8A8",
+      "foreground-end": "#FF9A45",
+      "foreground-stop": "15%",
+      "foreground-direction": "45deg",
+      "line-opacity": 0.6,
+      "background-color": "#16110B"
+    },
+    "crimson": {
+      "foreground-start": "#FFFFFF",
+      "foreground-end": "#FFFFFF",
+      "foreground-stop": "0%",
+      "foreground-direction": "90deg",
+      "line-opacity": 0.55,
+      "background-image": "red",
+      "background-fit": "cover"
+    }
+  },
+  "compose": {
+    "mode": "stitch",
+    "stitch": {
+      "direction": "Vertically",
+      "spacing": 0
+    },
+    "overlay": {
+      "anchor": "Bottom Right",
+      "width": 1080,
+      "height": 160,
+      "rotation": 0,
+      "opacityPercent": 100
+    }
+  },
+  "fallback": {
+    "note": "识别不到时的兜底值；date 支持 \"now\"（用渲染时刻，截图/无 EXIF 日期时）",
+    "model": "iPhone 18 Pro Max",
+    "date": "now",
+    "focal": 24,
+    "aperture": 1.8,
+    "speed": 0.0166666667,
+    "iso": 100
+  },
+  "layout_group": [
+    {
+      "layout": [
+        {
+          "type": "column",
+          "id": "center_layout",
+          "width": "100%",
+          "align-items": "center",
+          "padding": {
+            "top": 46,
+            "bottom": 46,
+            "left": 48,
+            "right": 48
+          },
+          "children": [
+            {
+              "type": "text",
+              "id": "model",
+              "font": "f1",
+              "text": "@{model}",
+              "text-align": "center"
+            },
+            {
+              "type": "text",
+              "id": "exif",
+              "font": "f2",
+              "text": "@{focal}mm  ƒ/@{aperture}  @{speed}s  ISO@{iso}",
+              "margin-top": 12
+            },
+            {
+              "type": "divider",
+              "id": "rule",
+              "width": 88,
+              "height": 2,
+              "margin-top": 26
+            },
+            {
+              "type": "row",
+              "id": "brand_line",
+              "align-items": "center",
+              "margin-top": 22,
+              "children": [
+                {
+                  "type": "image",
+                  "id": "logo",
+                  "src": "logo",
+                  "height": 38,
+                  "max-width": 190,
+                  "optional": true
+                },
+                {
+                  "type": "text",
+                  "id": "time",
+                  "font": "f2",
+                  "text": "@wm_time_yyyy_MM_dd",
+                  "margin-left": 20
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "location",
+              "font": "f2",
+              "text": "location_latlng",
+              "margin-top": 14
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "layout_loc_off": [
+        {
+          "type": "column",
+          "id": "center_layout",
+          "width": "100%",
+          "align-items": "center",
+          "padding": {
+            "top": 46,
+            "bottom": 46,
+            "left": 48,
+            "right": 48
+          },
+          "children": [
+            {
+              "type": "text",
+              "id": "model",
+              "font": "f1",
+              "text": "@{model}",
+              "text-align": "center"
+            },
+            {
+              "type": "text",
+              "id": "exif",
+              "font": "f2",
+              "text": "@{focal}mm  ƒ/@{aperture}  @{speed}s  ISO@{iso}",
+              "margin-top": 12
+            },
+            {
+              "type": "divider",
+              "id": "rule",
+              "width": 88,
+              "height": 2,
+              "margin-top": 26
+            },
+            {
+              "type": "row",
+              "id": "brand_line",
+              "align-items": "center",
+              "margin-top": 22,
+              "children": [
+                {
+                  "type": "image",
+                  "id": "logo",
+                  "src": "logo",
+                  "height": 38,
+                  "max-width": 190,
+                  "optional": true
+                },
+                {
+                  "type": "text",
+                  "id": "time",
+                  "font": "f2",
+                  "text": "@wm_time_yyyy_MM_dd",
+                  "margin-left": 20
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "fonts": {
+    "f1": {
+      "font-size": 34,
+      "font-weight": 620,
+      "line-height": 45,
+      "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
+      "design-weight": 501
+    },
+    "f2": {
+      "font-size": 21,
+      "font-weight": 520,
+      "line-height": 27.8,
+      "letter-spacing": "0.02em",
+      "opacity": 0.72,
+      "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
+      "design-weight": 451
+    }
+  }
+}
