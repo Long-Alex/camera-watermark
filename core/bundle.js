@@ -350,6 +350,7 @@ var expand = function (tpl) {
     // 不把 data URI 直接写进 CSS 文本：那条 HTML→富文本→图片 转换会丢/截断 CSS 里的长 data URI。
     if (backgroundImage) {
       root.style.setProperty('--bg-image', 'url("' + backgroundImage + '")');
+      // 注意：这里【不】设置 background-size/position/repeat —— 最初能出图时就没有它们（background-fit 是后加的）
     }
 
     // 3) layout 变体：lat/lon 均非空 ⇒ layout；任一为空 ⇒ layout_loc_off（§5.3）
