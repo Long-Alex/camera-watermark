@@ -30,7 +30,7 @@
       "width": 1080,
       "height": 160,
       "rotation": 0,
-      "opacity": 100
+      "opacityPercent": 100
     }
   },
   "fallback": {
