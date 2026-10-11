@@ -338,28 +338,11 @@ var expand = function (tpl) {
     //   cover   = 不变形、铺满、居中裁切（默认，适合照片/图案）
     //   repeat  = 高度铺满 + 按原比例横向平铺（适合纸纹/布料这类可平铺素材）
     //   stretch = 拉满整条带（素材本身就是按带子比例设计的才用，比如 1px 竖渐变）
-    // 背景图：照【iPhone 水印V11】的配方 —— 用 <style> 规则 + CSS 变量承载背景图，
-    // 而不是元素内联 style（V11 的 .watermark-container 就是 position:absolute + 显式 px +
-    // background-image:var(--bg-image)，实测能出图；内联 style 里塞 7KB data URI 会被那条转换丢掉）。
-    // 同时严格对齐 V11：容器 position:absolute + width/height 写死像素，不用任何百分比。
-    var backgroundImage = (BG_URI && BG_URI.length > 32) ? BG_URI : '';
+    // 背景图：由模板里的【静态 CSS 规则】承载（#wm-root 的 background-image 用占位符 @@BACKGROUND_IMAGE@@ 填），
+    // 这里只保证尺寸变量可用；不再运行时创建 <style>（V11 也是静态规则 + 值由快捷指令注入）。
     var bandW = (typeof BAND_W === 'number' && BAND_W > 0) ? BAND_W : 0;
     var bandH = (typeof BAND_H === 'number' && BAND_H > 0) ? BAND_H : 0;
-    if (bandW && bandH) {
-      var bgFit = APP('background-fit', 'cover');
-      var bgSize = (bgFit === 'stretch') ? '100% 100%' : (bgFit === 'repeat') ? 'auto 100%' : 'cover';
-      var bgRep = (bgFit === 'repeat') ? 'repeat-x' : 'no-repeat';
-      var css = '#wm-root{position:absolute;left:0;top:0;width:' + bandW + 'px;height:' + bandH + 'px;';
-      if (backgroundImage) {
-        css += 'background-image:url(' + backgroundImage + ');background-size:' + bgSize +
-               ';background-position:center;background-repeat:' + bgRep + ';';
-      }
-      css += '}';
-      var bgStyle = document.createElement('style');
-      bgStyle.setAttribute('id', 'wm-bg-rule');
-      bgStyle.textContent = css;
-      document.head.appendChild(bgStyle);
-    }
+    if (bandW && bandH) { root.style.width = bandW + 'px'; root.style.height = bandH + 'px'; }
 
     // 3) layout 变体：lat/lon 均非空 ⇒ layout；任一为空 ⇒ layout_loc_off（§5.3）
     var gps = hasGps(), variants = CONFIG.layout_group || [], pick = null;
