@@ -114,8 +114,6 @@ for sid in style_ids:
     if bg:
         if not (R / 'assets' / 'background' / f"{bg}.png").exists():
             err(f"{styles_path.name}: appearance.{sid}.background-image='{bg}' 但 assets/background/{bg}.png 不存在")
-        warn(f"{styles_path.name}: appearance.{sid} 用了 background-image，但快捷指令目前仍写死空串"
-             f"（camera-watermark.cherri 的 @@BACKGROUND_IMAGE@@）⇒ 加了也不生效")
 for sid in style_table:
     if sid not in style_ids:
         warn(f"{styles_path.name}: appearance.{sid} 不在 order 里（菜单里看不到）")

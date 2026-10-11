@@ -2,6 +2,7 @@
 #define color pink
 #define glyph camera
 #include 'actions/calendar'
+#include 'actions/crypto'
 #include 'actions/documents'
 #include 'actions/images'
 #include 'actions/location'
@@ -128,6 +129,18 @@ const backgroundColor = getValue(selectedStyle, "background-color")
 const lineOpacityValue = getValue(selectedStyle, "line-opacity")
 const lineOpacity = getText(lineOpacityValue)
 
+comment('- 背景图（可选）：style 里的 background-image = assets/background/<id>.png，读出来转 data URI 注入页面。
+         没有这个键时 getValue 给空值，注入空串 = 纯底色（见踩坑 §19.10）')
+const backgroundImageValue = getValue(selectedStyle, "background-image")
+@backgroundImageId = getText(backgroundImageValue)
+@backgroundImageUri = ""
+if @backgroundImageId != "" {
+	const backgroundFile = getFile("camera-watermark/assets/background/{@backgroundImageId}.png", nil, true)
+	@backgroundFileVar = backgroundFile
+	const backgroundBase64 = base64Encode(@backgroundFileVar)
+	@backgroundImageUri = "data:image/png;base64,{backgroundBase64}"
+}
+
 comment('- 选择品牌标识：候选由 manifest.logos 给出（= assets/logo/*.txt 的 id），选中标放到徕卡标的位置')
 const logoOptions = getValue(manifest, "logos")
 const logoChoice = chooseFromList(logoOptions, "{@logoPrompt}")
@@ -210,7 +223,7 @@ if !@photos {
 		@page = replaceText("@@FOREGROUND_DIRECTION@@", "{foregroundDirection}", @page)
 		@page = replaceText("@@LINE_OPACITY@@", "{lineOpacity}", @page)
 		@page = replaceText("@@BACKGROUND_COLOR@@", "{backgroundColor}", @page)
-		@page = replaceText("@@BACKGROUND_IMAGE@@", "", @page)
+		@page = replaceText("@@BACKGROUND_IMAGE@@", "{@backgroundImageUri}", @page)
 		@page = replaceText("@@LOGO@@", "{logoSvg}", @page)
 		@page = replaceText("@@CORE_JS@@", "{rendererCode}", @page)
 		const richWatermark = getRichTextFromHTML(@page)

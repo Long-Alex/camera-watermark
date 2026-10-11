@@ -41,10 +41,16 @@
     st.setProperty('--foreground-direction', APP('foreground-direction', '90deg'));
 
     var root = document.getElementById('wm-root');
+    // 背景图：快捷指令注入 data URI（style 里的 background-image = assets/background/<id>.png）；
+    // 兼容旧写法：值若是名字则查 ASSETS['background:名字']（见踩坑 §19.10）
     var backgroundImage = APP('background-image', '');
-    if (backgroundImage && typeof ASSETS !== 'undefined' && ASSETS['background:' + backgroundImage]) {
-      root.style.backgroundImage = 'url(' + ASSETS['background:' + backgroundImage] + ')';
-      root.style.backgroundSize = '100% 100%';
+    if (backgroundImage) {
+      var bgUrl = backgroundImage.indexOf('data:') === 0 ? backgroundImage
+                : (typeof ASSETS !== 'undefined' && ASSETS['background:' + backgroundImage]) || '';
+      if (bgUrl) {
+        root.style.backgroundImage = 'url(' + bgUrl + ')';
+        root.style.backgroundSize = '100% 100%';
+      }
     }
 
     // 3) layout 变体：lat/lon 均非空 ⇒ layout；任一为空 ⇒ layout_loc_off（§5.3）

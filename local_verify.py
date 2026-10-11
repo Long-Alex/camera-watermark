@@ -14,7 +14,7 @@
 
 用法：python3 local_verify.py [--font ios|misans] [--keep]
 """
-import argparse, functools, html as htmlmod, http.server, json, math, pathlib, re, shutil, socketserver
+import argparse, base64, functools, html as htmlmod, http.server, json, math, pathlib, re, shutil, socketserver
 import subprocess, sys, tempfile, threading
 from urllib.parse import quote
 
@@ -51,6 +51,9 @@ CASES = [
     dict(name="style_gold_logo_Apple", W=4032, H=3024, model="iPhone 15 Pro", date="2026-06-14T08:43:00",
          exif=dict(focal=100, aperture=1.8, speed=1 / 60, iso=200), gps=(39.9056, 116.3914), logo="Apple",
          style="gold"),
+    dict(name="style_red_bg_image", W=1080, H=1440, model="iPhone 18 Pro Max", date="2026-06-14T08:43:00",
+         exif=dict(focal=24, aperture=1.78, speed=1 / 120, iso=64), gps=(31.2304, 121.4737), logo="Leica",
+         style="red"),
     dict(name="logo_Nikon", W=4032, H=3024, model="iPhone 15 Pro", date="2026-06-14T08:43:00",
          exif=dict(focal=100, aperture=1.8, speed=1 / 60, iso=200), gps=(39.9056, 116.3914), logo="Nikon"),
     dict(name="logo_none", W=4032, H=3024, model="iPhone 15 Pro", date="2026-06-14T08:43:00",
@@ -143,6 +146,30 @@ PROBE = r"""
 """
 
 
+def background_data_uri(style):
+    """styles.json 的 background-image（= assets/background/<id>.png 的 id）→ data URI（与快捷指令注入的一致）"""
+    name = style.get("background-image")
+    if not name:
+        return ""
+    p = R / "assets" / "background" / f"{name}.png"
+    if not p.exists():
+        return ""
+    return "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode()
+
+
+def bg_color_at(style, x_px, y_px, req_w, band_h, dpr):
+    """截图设备像素 (x_px,y_px) 处的期望底色：无背景图 = background-color；有背景图 = 素材按 100%×100% 拉伸后同位置像素"""
+    img = style.get("background-image")
+    if img:
+        p = R / "assets" / "background" / f"{img}.png"
+        if p.exists():
+            a = Image.open(p).convert("RGB")
+            u = min(max(x_px / max(1e-6, req_w * dpr), 0.0), 0.99999)
+            v = min(max(y_px / max(1e-6, band_h * dpr), 0.0), 0.99999)
+            return a.getpixel((int(u * a.width), int(v * a.height)))
+    return hex_rgb(style["background-color"])
+
+
 def build_page(preset, preset_text, bundle, case, style_id, logo_file, req_w):
     style = STYLES["appearance"][style_id]
     gps = case.get("gps")
@@ -161,7 +188,8 @@ def build_page(preset, preset_text, bundle, case, style_id, logo_file, req_w):
         "@@FOREGROUND_START@@": style["foreground-start"], "@@FOREGROUND_END@@": style["foreground-end"],
         "@@FOREGROUND_STOP@@": style["foreground-stop"], "@@FOREGROUND_DIRECTION@@": style["foreground-direction"],
         "@@LINE_OPACITY@@": str(style.get("line-opacity", 1)),
-        "@@BACKGROUND_COLOR@@": style["background-color"], "@@BACKGROUND_IMAGE@@": "",
+        "@@BACKGROUND_COLOR@@": style["background-color"],
+        "@@BACKGROUND_IMAGE@@": background_data_uri(style),
         "@@LOGO@@": (R / "assets" / "logo" / f"{logo_file}.txt").read_text() if logo_file else "",
         "@@CORE_JS@@": bundle,
     }
@@ -373,33 +401,36 @@ def hex_rgb(h):
 
 
 def check_pixels(res, preset, case, style_id):
-    """截图内容校验：底色 = 样式底色、logo 区域真的有图形（防"拿到别的页面"）"""
+    """截图内容校验：底色 = 样式底色（有背景图则按素材同位置取色）、logo 区域真的有图形（防"拿到别的页面"）"""
     fails, shot = [], pathlib.Path(res["shot"])
     if not shot.exists():
         return ["截图缺失"]
     im = Image.open(shot).convert("RGB")
-    want = hex_rgb(STYLES["appearance"][style_id]["background-color"])
+    st = STYLES["appearance"][style_id]
+    dpr = res.get("dpr", 1)
+    has_bg_img = bool(st.get("background-image"))
+    want = bg_color_at(st, 3, 3, res["req_w"], res["band_h"], dpr)
     got = im.getpixel((3, 3))
-    if max(abs(a - b) for a, b in zip(got, want)) > 6:
-        fails.append(f"截图底色 {got} ≠ 样式底色 {want}")
+    if max(abs(a - b) for a, b in zip(got, want)) > (14 if has_bg_img else 6):
+        fails.append(f"截图底色 {got} ≠ {'背景图' if has_bg_img else '样式底色'} {want}")
     rep = res["rep"] or {}
     ln = (rep.get("boxes") or {}).get("line_layout")
     # 分隔线宽 <1.5 设备像素时取色不可测（0.44px 抗锯齿），跳过颜色断言（几何断言仍在）
-    if ln and res.get("want_divider") and ln["w"] * res.get("dpr", 1) >= 1.5:
-        cx = int((ln["x"] + ln["w"] / 2) * res.get("dpr", 1))
-        cy = int((ln["y"] + ln["h"] / 2) * res.get("dpr", 1))
+    if ln and res.get("want_divider") and ln["w"] * dpr >= 1.5:
+        cx = int((ln["x"] + ln["w"] / 2) * dpr)
+        cy = int((ln["y"] + ln["h"] / 2) * dpr)
         got = im.getpixel((cx, cy))
         want = res["want_divider"]
-        if max(abs(g - w) for g, w in zip(got, want)) > 14:
+        if max(abs(g - w) for g, w in zip(got, want)) > (20 if has_bg_img else 14):
             fails.append(f"分隔线颜色 {got} ≠ 前景×lineOpacity 混底色 {want}")
     lb = (rep.get("boxes") or {}).get("logo")
-    dpr = res.get("dpr", 1)
     if case.get("logo") and lb:
         x0, y0 = int(lb["x"] * dpr) + 2, int(lb["y"] * dpr) + 2
         x1, y1 = int((lb["x"] + lb["w"]) * dpr) - 2, int((lb["y"] + lb["h"]) * dpr) - 2
         if x1 > x0 and y1 > y0:
             box = im.crop((x0, y0, x1, y1))
             px = list(box.getdata())
+            want = bg_color_at(st, x0, y0, res["req_w"], res["band_h"], dpr)   # logo 处的底色（背景图是渐变）
             ink = sum(1 for c in px if max(abs(c[0] - want[0]), abs(c[1] - want[1]), abs(c[2] - want[2])) > 40)
             if ink < len(px) * 0.02:
                 fails.append(f"logo 区域几乎没有图形（{ink}/{len(px)}）")
@@ -597,7 +628,10 @@ def check(res, preset, case):
     if line and row:
         st = STYLES["appearance"][case.get("style", "light")]
         a = float(st.get("line-opacity", 1))
-        fg = hex_rgb(st["foreground-start"]); bg = hex_rgb(st["background-color"])
+        fg = hex_rgb(st["foreground-start"])
+        dpr = res.get("dpr", 1)   # 底色取分隔线所在位置（有背景图时是渐变色，不能直接用 background-color）
+        bg = bg_color_at(st, (line["x"] + line["w"] / 2) * dpr, (line["y"] + line["h"] / 2) * dpr,
+                         res["req_w"], res["band_h"], dpr)
         want_px = tuple(round(a * f + (1 - a) * b) for f, b in zip(fg, bg))
         res["want_divider"] = want_px
 

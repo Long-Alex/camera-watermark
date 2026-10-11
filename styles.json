@@ -2,7 +2,8 @@
   "order": [
     "light",
     "dark",
-    "gold"
+    "gold",
+    "red"
   ],
   "appearance": {
     "light": {
@@ -28,6 +29,15 @@
       "foreground-direction": "45deg",
       "line-opacity": 0.7,
       "background-color": "#1D1D1F"
+    },
+    "red": {
+      "foreground-start": "#FFFFFF",
+      "foreground-end": "#FFFFFF",
+      "foreground-stop": "30%",
+      "foreground-direction": "90deg",
+      "line-opacity": 0.6,
+      "background-color": "#C81E1E",
+      "background-image": "red"
     }
   }
 }

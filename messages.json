@@ -17,7 +17,8 @@
     "style": {
       "light": "浅色",
       "dark": "深色",
-      "gold": "金色"
+      "gold": "金色",
+      "red": "Red"
     },
     "logo": {}
   },
@@ -36,7 +37,8 @@
     "style": {
       "浅色": "light",
       "深色": "dark",
-      "金色": "gold"
+      "金色": "gold",
+      "Red": "red"
     },
     "logo": {}
   }
