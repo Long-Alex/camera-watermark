@@ -513,6 +513,264 @@ var expand = function (tpl) {
   });
 };
 
+// 40-draw: view 树 → canvas 绘制 → 页面里唯一的一个 <img>
+// 为什么要有这一层（根因）：快捷指令的取图动作 is.workflow.actions.detect.images 是从页面内容里
+// 【提取图像】，不是给页面截图。AlphaTest 4 能取到透明 PNG，是因为它的页面 JS 把结果画进 <canvas>，
+// 再 document.body.appendChild(new Image()).src = canvas.toDataURL('image/png')
+// ⇒ 页面里恰好有一个 <img>，其 src 是带 alpha 的成品 PNG。
+// 我们原来是 DOM+CSS（div/span + 内联 SVG），页面里没有任何 <img> ⇒ 提取不到 ⇒ 白底 / 叠放报
+// "变量不包括要叠放的图像"。所以渲染结果必须变成"页面里唯一的一个 <img>"。
+//
+// 布局坐标不由本层负责：05-layout 的 measure/place/lgFlatten 已经给出每个节点的绝对像素
+// （v.ax / v.ay / v.w / v.h），这里只做绘制。
+
+// CSS 语义的角度 → canvas 线性渐变的起终点
+// CSS：0deg = 朝上、90deg = 朝右（顺时针）；渐变线长 = |w·sinθ| + |h·cosθ|（规范公式）
+// 之前用 (|w·dx|+|h·dy|)/2，水平场景（90deg）恰好等价，45deg 的分隔线只有一半长 ⇒ 取色偏差
+var wmGradAxis = function (deg, x, y, w, h) {
+  var th = deg * Math.PI / 180;
+  var dx = Math.sin(th), dy = -Math.cos(th);
+  var cx = x + w / 2, cy = y + h / 2;
+  var len = Math.abs(w * Math.sin(th)) + Math.abs(h * Math.cos(th));
+  var hx = dx * len / 2, hy = dy * len / 2;
+  return [cx - hx, cy - hy, cx + hx, cy + hy];
+};
+
+// 前景渐变（文字/分隔线都用它）：CSS `linear-gradient(<direction>, A <stop>, B)` 的语义是
+//   · 0% → stop%：纯 A（第一个颜色位置之前都是它）
+//   · stop% → 100%：A → B 渐变
+// 早先写成 A@0 / B@stop / B@1，等于 0→stop 一直在 A→B 插值 ⇒ 分隔线取色偏
+var wmForeground = function (ctx, x, y, w, h) {
+  var deg = parseFloat(APP('foreground-direction', '90deg'));
+  if (!isFinite(deg)) deg = 90;
+  var a = wmGradAxis(deg, x, y, w, h);
+  var g = ctx.createLinearGradient(a[0], a[1], a[2], a[3]);
+  var start = APP('foreground-start', '#000000');
+  var end = APP('foreground-end', start);
+  var stop = parseFloat(APP('foreground-stop', '0%'));
+  if (!isFinite(stop)) stop = 0;
+  stop = Math.min(0.999, Math.max(0, stop / 100));
+  g.addColorStop(0, start);
+  if (stop > 0) g.addColorStop(stop, start);
+  g.addColorStop(stop, end);
+  if (stop < 1) g.addColorStop(1, end);
+  return g;
+};
+
+var wmFontStr = function (f, sizePx) {
+  return (f['font-weight'] || 400) + ' ' + sizePx + 'px ' + (f['font-family'] || 'sans-serif');
+};
+
+// text-shadow: "0 1px 1px #80000000" / "0px 1px 2px rgba(0,0,0,.6)" → ctx.shadow*
+// 单位可省（preset 里就是 "0 1px 1px …"）
+var wmShadow = function (ctx, css) {
+  ctx.shadowOffsetX = ctx.shadowOffsetY = ctx.shadowBlur = 0;
+  ctx.shadowColor = 'rgba(0,0,0,0)';
+  if (!css) return;
+  var m = String(css).match(/(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?\s+(.+)$/);
+  if (!m) return;
+  ctx.shadowOffsetX = parseFloat(m[1]);
+  ctx.shadowOffsetY = parseFloat(m[2]);
+  ctx.shadowBlur = parseFloat(m[3]);
+  ctx.shadowColor = m[4].trim();
+};
+
+// 文本：逐字绘制以复刻 letter-spacing（10-style 的 CSS 和 05-layout 的 lgTextWidth 都是
+// "measureText + 每字符补一个 letterSpacing"，逐字推进才能与布局宽度一致）
+var wmDrawText = function (ctx, v) {
+  if (!v._t || !v._text) return;
+  var f = v._t.font, sizePx = v._t.sizePx;
+  ctx.save();
+  ctx.font = wmFontStr(f, sizePx);
+  ctx.textBaseline = 'alphabetic';
+  if (f.opacity != null) ctx.globalAlpha = Math.max(0, Math.min(1, parseFloat(f.opacity)));
+  wmShadow(ctx, f.shadow);
+  var ls = (parseFloat(f['letter-spacing']) || 0) * sizePx;
+  var lines = String(v._text).split('\n');
+  var lh = v._t.lh || sizePx;
+  // 复刻 CSS 的 half-leading：行盒高 lh，字形盒高 (ascent+descent) 居中 ⇒ 基线 = 顶 + (lh-(a+d))/2 + a
+  var mm = ctx.measureText('Hg');
+  var asc = mm.fontBoundingBoxAscent, desc = mm.fontBoundingBoxDescent;
+  if (asc == null || !isFinite(asc)) { asc = sizePx * 0.8; desc = sizePx * 0.2; }
+  if (desc == null || !isFinite(desc)) desc = sizePx * 0.2;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var x = v.ax;
+    var y = v.ay + lh * i + (lh - (asc + desc)) / 2 + asc;
+    ctx.fillStyle = wmForeground(ctx, v.ax, v.ay, v.w || 1, lh);
+    if (ls <= 0.001) { ctx.fillText(line, x, y); continue; }
+    for (var c = 0; c < line.length; c++) {
+      var ch = line.charAt(c);
+      ctx.fillText(ch, x, y);
+      x += ctx.measureText(ch).width + ls;
+    }
+  }
+  ctx.restore();
+};
+
+// 分隔线等：节点自身带 @foreground 填充 ⇒ 用【纯前景色】铺（与参考实现 resolve_color 一致：
+// 参考件就是把 @foreground=N 解析成一个纯色，再乘 line-opacity）。
+// 早先用渐变铺，取到的是渐变端色，超出容差；纯色既贴合参考件也在容差内最稳。
+var wmDrawFill = function (ctx, v) {
+  var fill = fillFor(v);
+  if (!fill || !fill.gradient) return false;
+  ctx.save();
+  if (fill.opacity != null) ctx.globalAlpha = Math.max(0, Math.min(1, fill.opacity));
+  ctx.fillStyle = APP('foreground-start', '#000000');
+  ctx.fillRect(v.ax, v.ay, v.w, v.h);
+  ctx.restore();
+  return true;
+};
+
+// 底色：stitch(拼接)款样式有底色 ⇒ 铺满画布；overlay(叠加)款是 transparent ⇒ 不铺（保住 alpha）
+var wmDrawBackdrop = function (ctx, W, H) {
+  var bgc = String(APP('background-color', '')).trim();
+  if (!bgc || bgc === 'transparent' || bgc === 'none') return;
+  ctx.save();
+  ctx.fillStyle = bgc;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+};
+
+// 背景图（样式里的 background-image）：cover / stretch / repeat，复用模板原有的 bg-fit 语义
+var wmDrawBgImage = function (ctx, W, H, img) {
+  if (!img || !img.width || !img.height) return;
+  var fit = APP('background-fit', 'cover');
+  ctx.save();
+  if (fit === 'stretch') {
+    ctx.drawImage(img, 0, 0, W, H);
+  } else if (fit === 'repeat') {
+    var rh = H, rw = img.width * (H / img.height);
+    for (var x = 0; x < W; x += rw) ctx.drawImage(img, x, 0, rw, rh);
+  } else {                                  // cover：等比铺满、居中裁切
+    var sc = Math.max(W / img.width, H / img.height);
+    var dw = img.width * sc, dh = img.height * sc;
+    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  }
+  ctx.restore();
+};
+
+// 品牌标（内联 SVG）：先用 05/20 同一套渐变规则上色，再转成 data URI 交给 <img> 光栅化
+var wmLogoSvg = function (v) {
+  if (!v._svg) return '';
+  var box = document.createElement('div');
+  box.innerHTML = v._svg;
+  var inner = box.querySelector('svg');
+  if (!inner) return '';
+  inner.setAttribute('width', v.w);
+  inner.setAttribute('height', v.h);
+  inner.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  inner.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  paintGradient(inner);
+  return new XMLSerializer().serializeToString(inner);
+};
+
+var wmLoadImage = function (src) {
+  return new Promise(function (resolve) {
+    var im = new Image();
+    im.onload = function () { resolve(im); };
+    im.onerror = function () { resolve(null); };
+    im.src = src;
+  });
+};
+
+var wmSvgDataUri = function (svg) {
+  var b64;
+  try { b64 = btoa(unescape(encodeURIComponent(svg))); }
+  catch (e) { b64 = btoa(svg); }
+  return 'data:image/svg+xml;base64,' + b64;
+};
+
+// 绘制整棵树：底色 → 背景图 → 各节点（分隔线/文字/logo）
+// 返回 Promise，完成后 canvas 上就是最终像素
+var wmPaint = function (L, canvas) {
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+
+  // 背景图：BG_URI 是纯 base64（真机）或完整 data URI（本地校验/历史版本）
+  var raw = (typeof BG_URI === 'string') ? BG_URI : '';
+  var uri = raw.length > 64 ? (raw.indexOf('data:') === 0 ? raw : 'data:image/png;base64,' + raw) : '';
+  var views = L.views || [];
+  var logos = {}, bgImg = null;
+
+  // 完整绘制（z 序：底色 → 背景图 → 其余节点）
+  var drawAll = function () {
+    ctx.clearRect(0, 0, W, H);
+    wmDrawBackdrop(ctx, W, H);
+    wmDrawBgImage(ctx, W, H, bgImg);
+    for (var i = 0; i < views.length; i++) {
+      var v = views[i];
+      if (!v.enabled) continue;
+      if (v.type === 'TextView') { wmDrawText(ctx, v); continue; }
+      if (v.type === 'ImageView') {
+        var im = logos[v.id];
+        if (im) ctx.drawImage(im, v.ax, v.ay, v.w, v.h);
+        continue;
+      }
+      wmDrawFill(ctx, v);
+    }
+  };
+
+  // ★ 第一遍（同步）：不需要图片资源的部分先画完，并【同步发布】页面里那个 <img>。
+  //   原因：取图动作 detect.images 是"从页面内容里提取图像"，页面加载完成那一刻就必须存在合法 <img>；
+  //   若等到 Promise（logo/背景图异步加载）才创建，真机很可能在它出现前就取过图 ⇒ 取不到/白底。
+  drawAll();
+  var published = wmPublish(canvas);
+
+  // 第二遍（异步）：logo 与背景图就绪后完整重绘，并更新已发布 <img> 的 src。
+  var jobs = [];
+  for (var i = 0; i < views.length; i++) {
+    var v = views[i];
+    if (v.type === 'ImageView' && v.enabled && v._svg) {
+      var svg = wmLogoSvg(v);
+      if (svg) {
+        jobs.push(wmLoadImage(wmSvgDataUri(svg)).then((function (view) {
+          return function (im) { if (im) logos[view.id] = im; };
+        })(v)));
+      }
+    }
+  }
+  if (uri) jobs.push(wmLoadImage(uri).then(function (im) { bgImg = im; }));
+
+  return Promise.all(jobs).then(function () {
+    drawAll();
+    if (published) published.src = canvas.toDataURL('image/png');
+    return true;
+  });
+};
+
+// 把 canvas 变成页面里唯一的一个 <img>：detect.images 提取的就是它
+// 发布后把 canvas 藏起来：页面（以及本地校验的截图）显示的就是这张成品图，
+// 避免"canvas + img 叠在同一位置"把半透明像素合成两次。
+var wmPublish = function (canvas) {
+  // 尺寸自检（硬要求）：detect.images 提取的是 <img> 的自然尺寸，下游 resizeImageByLongestEdge(…, photoWidth)
+  // 依赖它恰好等于 BAND_W×BAND_H。若不等就写进 #wm-error —— 本地校验与真机都会立刻看到，
+  // 避免"校验全绿、真机尺寸错"这种沉默失败。
+  var okSize = (typeof BAND_W === 'number' && BAND_W > 0 && typeof BAND_H === 'number' && BAND_H > 0)
+      ? (canvas.width === BAND_W && canvas.height === BAND_H) : true;
+  if (!okSize) {
+    var box0 = document.getElementById('wm-error');
+    if (box0) {
+      box0.style.display = 'block';
+      box0.textContent = 'watermark error: canvas size ' + canvas.width + 'x' + canvas.height +
+                         ' != BAND ' + BAND_W + 'x' + BAND_H;
+    }
+  }
+  var img = document.getElementById('wm-out');
+  if (!img) {                       // 幂等：绝不产生第二个 #wm-out（detect.images 需要页面里恰好一个图）
+    img = new Image();
+    img.id = 'wm-out';
+    img.setAttribute('data-wm-out', '1');
+    document.body.appendChild(img);
+  }
+  img.width = canvas.width;
+  img.height = canvas.height;
+  img.setAttribute('data-wm-size', canvas.width + 'x' + canvas.height);   // 供 local_verify 从 DOM dump 断言
+  img.src = canvas.toDataURL('image/png');
+  canvas.style.visibility = 'hidden';
+  return img;
+};
+
 // 90-boot: 入口 —— RUNTIME → CONFIG → 选 layout 变体 → CSS 变量 → 绝对定位建树 → 防挤压
 (function () {
   var fail = function (msg) {
