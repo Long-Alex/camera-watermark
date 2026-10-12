@@ -8,7 +8,9 @@
       "layout_loc_off": 159.0
     },
     "position": "out",
-    "source": "xiaomi apk leica/1 config.json"
+    "source": "xiaomi apk leica/1 config.json",
+    "bandDpGps": 159.8,
+    "bandDpLocOff": 159.0
   },
   "type": {
     "浅色": "light",

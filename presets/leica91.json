@@ -8,7 +8,9 @@
     },
     "position": "in",
     "source": "xiaomi apk leica/91 config.json",
-    "note_variant": "单变体模板：layout/layout_loc_off 与 center_top 同值，仅用于快捷指令兜底（JS 按 layout_group 选变体）"
+    "note_variant": "单变体模板：layout/layout_loc_off 与 center_top 同值，仅用于快捷指令兜底（JS 按 layout_group 选变体）",
+    "bandDpGps": 180.5,
+    "bandDpLocOff": 180.5
   },
   "type": {
     "白色": "white",
