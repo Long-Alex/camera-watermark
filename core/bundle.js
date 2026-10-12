@@ -616,8 +616,24 @@ var expand = function (tpl) {
       L = renderPass(f);
     }
     root.setAttribute('data-variant', pickName);
+
+    // 4b) 画布发布：把同一棵布局树画进 #wm-canvas，再让 canvas 变成页面里【唯一的一个 <img>】。
+    //     取图动作 is.workflow.actions.detect.images 是从页面内容里提取图像（不是截图），
+    //     只有存在这个 <img> 才能拿到带 alpha 的成品（见 40-draw 顶部说明）。
+    var canvas = document.getElementById('wm-canvas');
+    var paint = function (L2) {
+      if (!canvas || typeof wmPaint !== 'function') return;
+      var old = document.getElementById('wm-out');
+      if (old && old.parentNode) old.parentNode.removeChild(old);
+      try {
+        wmPaint(L2, canvas).then(function () { wmPublish(canvas); });
+      } catch (e) { fail(e && e.message ? e.message : String(e)); }
+    };
+    paint(L);
     if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
-      document.fonts.ready.then(function () { try { renderPass(root.getAttribute('data-fit') === '1' ? 0.9 : 1); } catch (e) {} });
+      document.fonts.ready.then(function () {
+        try { paint(renderPass(root.getAttribute('data-fit') === '1' ? 0.9 : 1)); } catch (e) {}
+      });
     }
   } catch (e) {
     fail(e && e.message ? e.message : String(e));
