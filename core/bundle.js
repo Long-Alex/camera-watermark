@@ -537,7 +537,10 @@ var expand = function (tpl) {
       if (OVERRIDE && OVERRIDE[ak] !== '' && OVERRIDE[ak] != null) ap[ak] = OVERRIDE[ak];
     }
     var st = document.documentElement.style;
-    st.setProperty('--background-color', APP('background-color', '#FFFFFF'));
+    // overlay(叠加)类模板：整页必须透明 —— 不能落回 #FFFFFF 默认值（否则水印层铺满画布 = 白底）
+    var __bgc = APP('background-color', '#FFFFFF');
+    if (CONFIG.compose && CONFIG.compose.mode === 'overlay') __bgc = 'transparent';
+    st.setProperty('--background-color', __bgc);
     st.setProperty('--foreground-start', APP('foreground-start', '#000000'));
     st.setProperty('--foreground-end', APP('foreground-end', APP('foreground-start', '#000000')));
     st.setProperty('--foreground-stop', APP('foreground-stop', '0%'));
