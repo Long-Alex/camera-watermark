@@ -185,10 +185,15 @@ var lgTextSize = function (v, sizeScale) {
 };
 
 var _lgCtx = null;
+// 字族含空格必须加引号，否则 ctx.font 解析失败（Chrome 退回默认 10px）⇒ 测宽与绘制都偏小。
+// wmFontFam 在 core/40-draw.js（拼接顺序在 05 之后，但本函数是运行时调用，届时已就绪）。
+var lgFontFam = function (fam) {
+  return (typeof wmFontFam === 'function') ? wmFontFam(fam) : String(fam || 'sans-serif');
+};
 var lgTextWidth = function (text, font, sizePx) {
   if (_lgCtx == null) _lgCtx = document.createElement('canvas').getContext('2d');
   var ls = parseFloat(font['letter-spacing']) || 0;        // em
-  _lgCtx.font = (font['font-weight'] || 400) + ' ' + sizePx + 'px ' + (font['font-family'] || 'sans-serif');
+  _lgCtx.font = (font['font-weight'] || 400) + ' ' + sizePx + 'px ' + lgFontFam(font['font-family']);
   var w = _lgCtx.measureText(text).width;
   return w + ls * sizePx * String(text).length;            // CSS/Paint 每字符都补一个 letterSpacing
 };
@@ -366,44 +371,8 @@ var lgAssets = function (root) {
   for (var i = 0; i < root.length; i++) walk(root[i]);
 };
 
-var lgNodeDom = function (v) {
-  if (!v.enabled) { var skip = EL('div', { display: 'none' }); skip.setAttribute('data-id', v.id); return skip; }
-  if (v.type === 'TextView') {
-    var e = EL('div', textCss(v), v._text || '');
-    e.className = 'tn';
-    e.setAttribute('data-id', v.id);
-    e.setAttribute('data-fs', (v._t.sizePx) + 'px');
-    e.setAttribute('data-font', v.font || '');
-    return e;
-  }
-  if (v.type === 'ImageView') {
-    var box = EL('div', ABS_BOX(v));
-    box.setAttribute('data-id', v.id);
-    if (v._svg) {
-      box.innerHTML = v._svg;
-      var inner = box.querySelector('svg');
-      if (inner) {
-        inner.setAttribute('width', v.w); inner.setAttribute('height', v.h);
-        inner.style.width = v.w + 'px'; inner.style.height = v.h + 'px';
-        inner.style.display = 'block';
-        inner.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-        paintGradient(inner);
-        box.setAttribute('data-ratio', (v._aspect || 1).toFixed(4));
-      }
-    }
-    return box;
-  }
-  // Layout
-  var d = EL('div', ABS_BOX(v));
-  d.setAttribute('data-id', v.id);
-  var fill = fillFor(v);
-  if (fill && fill.gradient) {
-    d.style.backgroundImage = 'linear-gradient(' + APP('foreground-direction', '90deg') + ',var(--foreground-start) ' +
-      APP('foreground-stop', '0%') + ',var(--foreground-end))';
-    if (fill.opacity != null) d.style.opacity = fill.opacity;
-  }
-  return d;
-};
+// 【已删除 lgNodeDom】纯 canvas 直绘：不再创建任何布局 DOM 节点。
+// 布局数据由 lgLayout 产出（{tree, views}），绘制由 core/40-draw.js 直接画到 #wm-canvas。
 
 // 布局 + 建树：返回 {tree, views}（views = 绝对坐标展平列表）
 var lgLayout = function (nodes, sizeScale) {
@@ -557,8 +526,35 @@ var wmForeground = function (ctx, x, y, w, h) {
   return g;
 };
 
+// ctx.font 的字族处理（踩坑）：
+//  1) 含空格的族名必须加引号；
+//  2) -apple-system / BlinkMacSystemFont / system-ui / ui-* 是【CSS 专有关键字】，canvas 的
+//     ctx.font 不接受它们；一旦出现，整条 font 声明解析失败 ⇒ Chrome 保留上一次的字体
+//     （默认 10px）⇒ 文字画出来只有一半大、测宽也偏小（真机与本地校验都会中招）。
+//     所以这里把 CSS 专有关键字过滤掉，只留真实族名与通用族。
+var wmFontFam = function (fam) {
+  var CSS_ONLY = /^(-apple-system|blinkmacsystemfont|system-ui|ui-sans-serif|ui-serif|ui-monospace|-webkit-body|-webkit-standard)$/i;
+  var out = String(fam || '').split(',').map(function (s) {
+    s = s.trim().replace(/^["']|["']$/g, '');
+    if (!s || CSS_ONLY.test(s)) return '';
+    if (/^(sans-serif|serif|monospace|cursive|fantasy)$/i.test(s)) return s;
+    return /\s/.test(s) ? ('"' + s + '"') : s;
+  }).filter(Boolean);
+  if (!out.length) out = ['sans-serif'];
+  if (!/^(sans-serif|serif|monospace|cursive|fantasy)$/i.test(out[out.length - 1])) out.push('sans-serif');
+  return out.join(',');
+};
+
+// canvas 的 ctx.font 只认 100..900 的【百位档】权重（变量字体的小米 501/620 这类值
+// 在部分实现里会被判为非法 ⇒ 整条声明失败 ⇒ 回退默认字体，字形变成衬线）。这里收敛到最近百位。
+var wmFontWeight = function (w) {
+  var n = parseFloat(w);
+  if (!isFinite(n) || n <= 0) return 400;
+  var step = Math.round(n / 100) * 100;
+  return Math.max(100, Math.min(900, step));
+};
 var wmFontStr = function (f, sizePx) {
-  return (f['font-weight'] || 400) + ' ' + sizePx + 'px ' + (f['font-family'] || 'sans-serif');
+  return wmFontWeight(f['font-weight']) + ' ' + sizePx + 'px ' + wmFontFam(f['font-family']);
 };
 
 // text-shadow: "0 1px 1px #80000000" / "0px 1px 2px rgba(0,0,0,.6)" → ctx.shadow*
@@ -804,23 +800,9 @@ var wmPublish = function (canvas) {
     st.setProperty('--foreground-stop', APP('foreground-stop', '0%'));
     st.setProperty('--foreground-direction', APP('foreground-direction', '90deg'));
 
-    var root = document.getElementById('wm-root');
-    // 背景图：快捷指令注入 BG_URI（纯 base64，或历史/本地校验用的完整 data URI）；
-    // 缩放/定位由模板静态 CSS 给 cover/center/no-repeat，再按 background-fit 用内联样式覆盖。
-    var bandW = (typeof BAND_W === 'number' && BAND_W > 0) ? BAND_W : 0;
-    var bandH = (typeof BAND_H === 'number' && BAND_H > 0) ? BAND_H : 0;
-    var bgRaw = BG_URI || '';
-    var backgroundImage = (bgRaw.length > 64)
-      ? (bgRaw.indexOf('data:') === 0 ? bgRaw : ('data:image/png;base64,' + bgRaw))
-      : '';
-    if (bandW && bandH) { root.style.width = bandW + 'px'; root.style.height = bandH + 'px'; }
-    if (backgroundImage) {
-      document.documentElement.style.setProperty('--bg-image', 'url("' + backgroundImage + '")');
-      var bgFit = APP('background-fit', 'cover');
-      root.style.backgroundSize = (bgFit === 'stretch') ? '100% 100%' : (bgFit === 'repeat') ? 'auto 100%' : 'cover';
-      root.style.backgroundPosition = 'center';
-      root.style.backgroundRepeat = (bgFit === 'repeat') ? 'repeat-x' : 'no-repeat';
-    }
+    // 纯 canvas 直绘：页面里【没有任何布局 DOM 盒子】（#wm-root 已删除）。
+    // 底色 / 背景图 / 文字 / 分隔线 / logo 全部由 40-draw.js 按布局树的绝对坐标画进 #wm-canvas，
+    // 再把 canvas 发布成页面里唯一的一个 <img>（取图动作 detect.images 靠提取这个 <img>）。
 
     // 3) 选 layout 变体：有 layout / layout_loc_off 两个就按 GPS 有无二选一；
     //    单变体（如 91 号的 center_top）直接用；多而非常规命名时取第一个。
@@ -835,16 +817,20 @@ var wmPublish = function (canvas) {
     }
     if (!pick) throw new Error('layout_group 为空');
 
-    // 4) 通用布局引擎：measure/place（绝对坐标）→ DOM。文字被挤时按比例缩字号重排（幂等）
+    // 4) 通用布局引擎：measure/place（绝对坐标）→ 布局树（【不建任何 DOM】）。文字被挤时按比例缩字号重排（幂等）
     var renderPass = function (sizeScale) {
-      while (root.firstChild) root.removeChild(root.firstChild);
-      var L = lgLayout(pick, sizeScale);
-      for (var n = 0; n < L.views.length; n++) root.appendChild(lgNodeDom(L.views[n]));
-      return L;
+      return lgLayout(pick, sizeScale);
     };
-    // 防挤压：同一水平容器里相邻子项横向重叠 ⇒ 缩字号重排（小米引擎无此逻辑，是本项目的兜底）
+    // 防挤压（本项目兜底；小米引擎无此逻辑）：同一行内，若左侧内容压进了右侧"脱离流"的兄弟
+    // （right/center gravity，位置由父容器固定）所占区域，就按【可用空间】缩字号重排。
+    // 三条判据都是踩过的坑：
+    //   ① 必须两轴相交：只比 x 会把同一列上下两个 band 的兄弟误判（曾把 91 整层缩到 0.4 下限）
+    //   ② 在 x 上完全包住 a 的兄弟是"整行叠加层"（如 91 的 right_bottom_group），设计如此，不参与
+    //   ③ 因子用 avail = b.ax - gap - a.ax 算，而不是两盒跨度 span —— span 里混进很宽的右组会把
+    //      因子算得极轻（long_model 只缩 0.6%，依然压住 logo，实测报"logo 会贴住机型文字"）
+    var LG_GUARD_GAP_DP = 24;   // 安全间隙(dp)：机型文字与右组至少留 24dp（harness 断言 ≥20dp，余 4dp）
     var overlapFactor = function (L) {
-      var worst = 1;
+      var worst = 1, gapPx = LG_GUARD_GAP_DP * CONFIG.unit;
       var walk = function (v) {
         if (v.type === 'Layout' && v.orientation === 'horizontal') {
           var vis = [];
@@ -854,10 +840,22 @@ var wmPublish = function (canvas) {
           }
           for (var j = 1; j < vis.length; j++) {
             var a = vis[j - 1], b = vis[j];
-            var ov = (a.ax + a.w) - b.ax;
-            if (ov > 0.5) {
-              var span = a.w + b.w;
-              if (span > 0) worst = Math.min(worst, Math.max(0.4, (span - ov) / span));
+            // ① 同一行
+            if (!(a.ay < b.ay + b.h - 0.5 && b.ay < a.ay + a.h - 0.5)) continue;
+            // ② 整行叠加层（完全包住 a）不参与
+            if (b.ax <= a.ax + 0.5 && b.ax + b.w >= a.ax + a.w - 0.5) continue;
+            // ③ b 在右侧且 a 挤进了它前面的安全间隙 ⇒ 按可用空间缩
+            var avail = b.ax - gapPx - a.ax;
+            if (avail > 0.5 && a.w > avail + 0.5) {
+              var f = Math.max(0.4, avail / a.w);
+              worst = Math.min(worst, f);
+              // 诊断：记录被判挤压的一对（写进 #wm-error，verify91/local_verify 都能看到）
+              if (!window.__WM_OVERLAP) window.__WM_OVERLAP = [];
+              if (window.__WM_OVERLAP.length < 8) {
+                window.__WM_OVERLAP.push((v.id || '?') + ': ' + (a.id || '?') + '(' + a.ax.toFixed(1) + '+'
+                  + a.w.toFixed(1) + ',y' + a.ay.toFixed(1) + ')' + ' × ' + (b.id || '?') + '(' + b.ax.toFixed(1)
+                  + ',y' + b.ay.toFixed(1) + ')' + ' avail=' + avail.toFixed(1) + ' f=' + f.toFixed(3));
+              }
             }
           }
         }
@@ -866,14 +864,66 @@ var wmPublish = function (canvas) {
       for (var t = 0; t < L.tree.length; t++) walk(L.tree[t]);
       return worst;
     };
-    var L = renderPass(1);
-    for (var pass = 0; pass < 3; pass++) {
-      var f = overlapFactor(L);
-      if (f >= 0.999) break;
-      root.setAttribute('data-fit', '1');
-      L = renderPass(f);
-    }
-    root.setAttribute('data-variant', pickName);
+    // 4a) 渲染遥测：页面已无任何布局 DOM，校验需要的版式数据（boxes/texts/fontsize/…）
+    //     由布局树暴露到 window.__WM_TELEMETRY，字段名与旧 DOM 探测保持一致。
+    var emitTelemetry = function (L2, isFitted) {
+      var boxes = {}, texts = {}, fontsize = {}, strokes = 0, shapes = 0, seen = {};
+      for (var i = 0; i < L2.views.length; i++) {
+        var v = L2.views[i];
+        if (!v || !v.id) continue;
+        var id = seen[v.id] ? (v.id + '#' + i) : v.id;
+        seen[v.id] = true;
+        boxes[id] = { x: v.ax, y: v.ay, w: v.w, h: v.h };
+        if (v._text != null) texts[id] = v._text;
+        if (v._t && v._t.font) fontsize[id] = { size: v._t.sizePx, font: v._t.font['font-family'] };
+        if (v._svg) {
+          var svg = String(v._svg);
+          strokes += (svg.match(/stroke=/g) || []).length;
+          shapes += (svg.match(/<(path|rect|circle|ellipse|polygon|polyline|use|line)\b/g) || []).length;
+        }
+      }
+      window.__WM_TELEMETRY = {
+        unit: CONFIG.unit, boxes: boxes, texts: texts, fontsize: fontsize,
+        logoStrokes: strokes, logoShapes: shapes,
+        fitted: !!isFitted, variant: pickName,
+        band: BAND_W + 'x' + BAND_H,
+        root: { clientWidth: BAND_W, scrollWidth: BAND_W, h: BAND_H }
+      };
+      return window.__WM_TELEMETRY;
+    };
+
+    // 布局 + 防挤压（同一水平容器【同一行内】相邻子项两轴都重叠 ⇒ 缩字号重排）。
+    // 注意：首次执行时 webfont 可能还没就绪，measureText 会落到回退字体、测得的宽度偏窄；
+    // 因此 document.fonts.ready 之后必须【重新布局 + 刷新遥测 + 重绘】（否则校验读到过时数据、画布也偏窄）。
+    var layoutOnce = function () {
+      var scale = 1, Lx = renderPass(scale), fx = false;
+      for (var pass = 0; pass < 3; pass++) {
+        var f = overlapFactor(Lx);
+        if (f >= 0.999) break;
+        var next = Math.max(0.4, f);              // 单轮因子（每轮从标称尺寸重排），硬下限 0.4
+        if (fx && next > scale - 0.001) break;    // 不再变好就停，避免用更大的因子重排反而又重叠
+        scale = next; fx = true;
+        Lx = renderPass(scale);
+      }
+      // 自检：只有在【逼近硬下限】时才判定为守卫误判（真机表现为整层文字骤小、版式全错）。
+      // 注意不能用 "<0.95 一律复位"：long_model 这类"长机型号 + 右侧 logo"的用例本来就
+      // 需要缩到 ~0.9 才能留出间隙，复位成 1 反而让两者重叠（实测该用例会因此报错）。
+      var eb = document.getElementById('wm-error');
+      if (scale <= 0.45) {
+        var diag = 'GUARD-MISJUDGE scale=' + scale.toFixed(3)
+          + (window.__WM_OVERLAP && window.__WM_OVERLAP.length ? ' | ' + window.__WM_OVERLAP.join(' || ') : '');
+        window.__WM_GUARD_MISJUDGE = diag;
+        scale = 1; fx = false; Lx = renderPass(1);
+        if (eb) { eb.style.display = 'block'; eb.textContent = diag; }
+      } else if (eb && /^GUARD-MISJUDGE/.test(eb.textContent || '')) {
+        // 本轮没误判：清掉上一轮（字体就绪前）留下的守卫告警，避免陈旧信号
+        eb.textContent = ''; eb.style.display = 'none';
+      }
+      return { L: Lx, fitted: fx };
+    };
+    var first = layoutOnce();
+    var L = first.L, fitted = first.fitted;
+    emitTelemetry(L, fitted);
 
     // 4b) 画布发布：把同一棵布局树画进 #wm-canvas，再让 canvas 变成页面里【唯一的一个 <img>】。
     //     取图动作 is.workflow.actions.detect.images 是从页面内容里提取图像（不是截图），
@@ -888,10 +938,21 @@ var wmPublish = function (canvas) {
       } catch (e) { fail(e && e.message ? e.message : String(e)); }
     };
     paint(L);
+    // 首次（同步）布局可能发生在 webfont 就绪前 ⇒ 宽度偏窄、遥测是过时数据。
+    // __WM_FINAL 是给校验用的"最终态"信号：只有 fonts.ready 之后的重排完成才置位，
+    // 校验探针必须等到它再读数（否则会读到字体就绪前的旧版式 —— 实测过这种偶发）。
     if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
       document.fonts.ready.then(function () {
-        try { paint(renderPass(root.getAttribute('data-fit') === '1' ? 0.9 : 1)); } catch (e) {}
+        try {
+          var again = layoutOnce();      // 字体就绪后重新测量（宽度会变）⇒ 遥测与画布一起刷新
+          L = again.L; fitted = again.fitted;
+          emitTelemetry(L, fitted);
+          paint(L);
+        } catch (e) {}
+        window.__WM_FINAL = true;
       });
+    } else {
+      window.__WM_FINAL = true;
     }
   } catch (e) {
     fail(e && e.message ? e.message : String(e));

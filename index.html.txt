@@ -4,25 +4,17 @@
      （桌面 Chrome/macOS 忽略这一条，所以本地校验看不出来 → 见 mobile_viewport_check.py） -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style id="wm-style">
+/* 纯 canvas 直绘：页面里【没有任何布局 DOM 盒子】，只留 canvas + 最终那一个成品 <img>。
+   取图动作 is.workflow.actions.detect.images 是从页面内容里【提取图像】，所以必须恰好一个 <img>。
+   底色/背景图/渐变全部由 40-draw.js 在 canvas 上绘制，不再依赖任何 CSS。 */
 html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;}
-#wm-root{box-sizing:border-box;overflow:hidden;position:absolute;left:0;top:0;visibility:hidden;
-  width:@@BAND_W@@px;height:@@BAND_H@@px;
-  background-image:var(--bg-image);
-  background-size:cover;background-position:center;background-repeat:no-repeat;  background-color:var(--background-color);
-}
-/* 背景图 = 构建期注入样式的 base64 → 快捷指令 replaceText 填进上面这行（V11 的同一套做法）；
-   纯色款拿到的是空壳 data URI，浏览器自动忽略，底色照常由 --background-color 给出 */
-#wm-root>*{position:relative;z-index:1;}
-#wm-root>#wm-bg{position:absolute;left:0;top:0;z-index:0;}
 #wm-logo-src{display:none!important;}
 #wm-canvas{position:absolute;left:0;top:0;}
 #wm-out{position:absolute;left:0;top:0;}
 #wm-error{display:none;font:12px/1.4 -apple-system,sans-serif;color:#c00;padding:4px;white-space:pre-wrap;}
-#wm-root .tn{background-image:linear-gradient(var(--foreground-direction),var(--foreground-start) var(--foreground-stop),var(--foreground-end));-webkit-background-clip:text;background-clip:text;color:transparent;}
 </style>
 </head><body>
 <canvas id="wm-canvas" width="@@BAND_W@@" height="@@BAND_H@@"></canvas>
-<div id="wm-root"></div>
 <div id="wm-logo-src" style="display:none">@@LOGO@@</div>
 <div id="wm-error"></div>
 <script>
