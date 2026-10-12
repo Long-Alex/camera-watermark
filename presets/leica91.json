@@ -7,7 +7,8 @@
       "center_top": 180.5
     },
     "position": "in",
-    "source": "xiaomi apk leica/91 config.json"
+    "source": "xiaomi apk leica/91 config.json",
+    "note_variant": "单变体模板：layout/layout_loc_off 与 center_top 同值，仅用于快捷指令兜底（JS 按 layout_group 选变体）"
   },
   "type": {
     "白色": "white",
@@ -76,7 +77,9 @@
               "margin_top": "0dp",
               "display_height": "0dp",
               "path": "",
-              "childViews": []
+              "childViews": [],
+              "_lw": 0.0,
+              "_lh": 0.0
             },
             {
               "type": "Layout",
@@ -120,17 +123,6 @@
                           "margin_top": "0dp",
                           "childViews": [
                             {
-                              "type": "ImageView",
-                              "id": "brand",
-                              "layout_gravity": "center_vertical",
-                              "margin_left": "0dp",
-                              "margin_top": "0dp",
-                              "display_height": "24dp",
-                              "display_width": "0dp",
-                              "path": "pathType=direct;path=logo",
-                              "childViews": []
-                            },
-                            {
                               "type": "TextView",
                               "id": "model",
                               "margin_top": "0dp",
@@ -138,9 +130,13 @@
                               "layout_gravity": "center_vertical",
                               "text": "@model= @{series}@{versionNumber}",
                               "font_ref": "f1",
-                              "childViews": []
+                              "childViews": [],
+                              "_lw": 0.0,
+                              "_lh": 28.6
                             }
-                          ]
+                          ],
+                          "_lw": 0.0,
+                          "_lh": 30.0
                         },
                         {
                           "type": "Layout",
@@ -162,7 +158,9 @@
                               "margin_top": "0dp",
                               "text": "@time=@wm_time_yyyy_MM_dd",
                               "font_ref": "f3",
-                              "childViews": []
+                              "childViews": [],
+                              "_lw": 0.0,
+                              "_lh": 26.5
                             },
                             {
                               "type": "TextView",
@@ -172,13 +170,21 @@
                               "margin_top": "0dp",
                               "text": "@time=@wm_time_HH_mm",
                               "font_ref": "f3",
-                              "childViews": []
+                              "childViews": [],
+                              "_lw": 0.0,
+                              "_lh": 26.5
                             }
-                          ]
+                          ],
+                          "_lw": 0.0,
+                          "_lh": 53.0
                         }
-                      ]
+                      ],
+                      "_lw": 0.0,
+                      "_lh": 142.0
                     }
-                  ]
+                  ],
+                  "_lw": 0.0,
+                  "_lh": 142.0
                 },
                 {
                   "type": "Layout",
@@ -200,9 +206,13 @@
                       "display_width": "0dp",
                       "path": "pathType=direct;path=logo",
                       "max_width": 0,
-                      "childViews": []
+                      "childViews": [],
+                      "_lh": 60.0,
+                      "_lw": 0.0
                     }
-                  ]
+                  ],
+                  "_lw": 0.0,
+                  "_lh": 60.0
                 },
                 {
                   "type": "Layout",
@@ -231,9 +241,13 @@
                           "layout_gravity": "center",
                           "text": "@location=location_latlng_switch;@locationLimit=0.8;@LOC=oo",
                           "font_ref": "f3",
-                          "childViews": []
+                          "childViews": [],
+                          "_lw": 0.0,
+                          "_lh": 26.5
                         }
-                      ]
+                      ],
+                      "_lw": 0.0,
+                      "_lh": 55.0
                     },
                     {
                       "type": "Layout",
@@ -252,7 +266,9 @@
                           "layout_gravity": "right|center_vertical",
                           "text": "@exif=@{focal}mm  ISO @{iso}",
                           "font_ref": "f3",
-                          "childViews": []
+                          "childViews": [],
+                          "_lw": 0.0,
+                          "_lh": 26.5
                         },
                         {
                           "type": "TextView",
@@ -260,15 +276,25 @@
                           "layout_gravity": "right|center_vertical",
                           "text": "@exif=ƒ/@{aperture}  @{speed}s",
                           "font_ref": "f3",
-                          "childViews": []
+                          "childViews": [],
+                          "_lw": 0.0,
+                          "_lh": 26.5
                         }
-                      ]
+                      ],
+                      "_lw": 0.0,
+                      "_lh": 58.0
                     }
-                  ]
+                  ],
+                  "_lw": 1080.0,
+                  "_lh": 60.0
                 }
-              ]
+              ],
+              "_lw": 1080.0,
+              "_lh": 180.5
             }
-          ]
+          ],
+          "_lw": 1080.0,
+          "_lh": 180.5
         }
       ]
     }
