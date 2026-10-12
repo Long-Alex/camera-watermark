@@ -553,15 +553,6 @@ var expand = function (tpl) {
       ? (bgRaw.indexOf('data:') === 0 ? bgRaw : ('data:image/png;base64,' + bgRaw))
       : '';
     if (bandW && bandH) { root.style.width = bandW + 'px'; root.style.height = bandH + 'px'; }
-    // 叠加(overlay)类模板：整页必须透明（照片在快捷指令侧合成，页面只提供水印层）
-    // 参考实现(leica_watermark_replica)与用户的「隐私水印V5」都是无底色页面 ⇒ 透明
-    if (CONFIG.compose && CONFIG.compose.mode === 'overlay') {
-      document.documentElement.style.background = 'transparent';
-      document.body.style.background = 'transparent';
-      root.style.background = 'transparent';
-      root.style.backgroundColor = 'transparent';
-    }
-
     if (backgroundImage) {
       document.documentElement.style.setProperty('--bg-image', 'url("' + backgroundImage + '")');
       var bgFit = APP('background-fit', 'cover');
