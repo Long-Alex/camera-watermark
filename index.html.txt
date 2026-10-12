@@ -4,11 +4,12 @@
      （桌面 Chrome/macOS 忽略这一条，所以本地校验看不出来 → 见 mobile_viewport_check.py） -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style id="wm-style">
-html,body{margin:0;padding:0;width:100%;height:100%;background:var(--background-color,#fff);}
+html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;}
 #wm-root{box-sizing:border-box;overflow:hidden;position:absolute;left:0;top:0;
   width:@@BAND_W@@px;height:@@BAND_H@@px;
   background-image:var(--bg-image);
-  background-size:cover;background-position:center;background-repeat:no-repeat;}
+  background-size:cover;background-position:center;background-repeat:no-repeat;  background-color:var(--background-color);
+}
 /* 背景图 = 构建期注入样式的 base64 → 快捷指令 replaceText 填进上面这行（V11 的同一套做法）；
    纯色款拿到的是空壳 data URI，浏览器自动忽略，底色照常由 --background-color 给出 */
 #wm-root>*{position:relative;z-index:1;}
