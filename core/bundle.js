@@ -622,19 +622,22 @@ var wmFontFam = function (fam) {
 };
 
 // 字重映射（唯一口径：05-layout 的测宽与这里的绘制都必须走它，否则"量的宽度"和"画的字形"不是一个字重）：
-//   canvas 的 ctx.font 只认 100..900 的【百位档】，不支持 CSS 变量字体的 wght 变体轴（501/451/620 这类
-//   数值一旦写进去，部分实现会判整条声明非法 ⇒ 回退默认字体，字形变衬线）。所以收敛到最近的百位档，
-//   观感近似即可（我们是系统字体，不是 MiSans VF，做不到像素级一致）。
+//   canvas 的 ctx.font 只认 100..900 的【百位档】，静态字体（Helvetica Neue / SF）也不吃 wght 变体轴
+//   （把 501/451/620 这类数值写进去只会按 CSS 字重匹配规则落到 Medium/Bold 等固定字面 ⇒ 观感偏粗）。
 //   取数优先级：font['design-weight']（= APK wmRes.fonts.*.variation 的 'wght' N，权威设计值）
 //              → font['font-weight']（apk2preset 的手工档位 620/550/500，只用于没有 design-weight 的旧 preset）。
-//   映射表：≤350→300 ｜ 401→400 ｜ 451→500 ｜ 501→500 ｜ 550→600 ｜ 620→600 ｜ ≥851→900（就近四舍五入）
+//   ★ 收敛方向 = 【向下取整到百位档】，不是就近四舍五入：我们的系统字体在同一档位上比 MiSans VF 观感更重，
+//     就近取整会把设计值 451 抬到 500 ⇒ 日期/经纬度行跟机型行一样粗（用户反馈"字重太大"）；
+//     而参考配置里第二行本就比第一行细（MiSans 451 vs 501）。
+//   同文案/同尺度的并排对照见 _local/stroke_vs_ref.png：机型行 501↔500 吻合、第二行 451↔400 吻合。
+//     映射表：401→400、451→400、501→500、550→500、620→600（下限 100，上限 900）
 var wmFontWeight = function (f) {
   var raw = (f && typeof f === 'object')
     ? ((f['design-weight'] != null && f['design-weight'] !== '') ? f['design-weight'] : f['font-weight'])
     : f;
   var n = parseFloat(raw);
   if (!isFinite(n) || n <= 0) return 400;
-  return Math.max(100, Math.min(900, Math.round(n / 100) * 100));
+  return Math.max(100, Math.min(900, Math.floor(n / 100) * 100));
 };
 var wmFontStr = function (f, sizePx) {
   return wmFontWeight(f) + ' ' + sizePx + 'px ' + wmFontFam(f['font-family']);
