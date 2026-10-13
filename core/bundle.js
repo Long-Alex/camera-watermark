@@ -82,42 +82,44 @@ var lgHex6 = function (c) {
   if (h.length === 8) h = h.slice(2);
   return (h.length === 6 && /^[0-9a-f]{6}$/i.test(h)) ? h : null;
 };
-// 取颜色的 alpha（0..1）：#AARRGGBB → AA/255；transparent → 0；其余（#RRGGBB 等）→ 1；
-// "@color=X"（同族前缀，APK 里用来显式指定调色板外的颜色）→ 去掉前缀按 X 算。
-var lgColorAlpha = function (ref) {
-  var s = String(ref == null ? '' : ref).trim();
-  if (s.charAt(0) === '@' && s.indexOf('=') > 0) s = s.slice(s.indexOf('=') + 1).trim();
-  if (s === 'transparent') return 0;
-  if (s.charAt(0) !== '#') return 1;
-  var h = s.slice(1);
-  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-  if (h.length !== 8 || !/^[0-9a-f]{8}$/i.test(h)) return 1;
-  var a = parseInt(h.slice(0, 2), 16) / 255;
-  return isFinite(a) ? a : 1;
-};
-// ★ ARGB → CSS 颜色串 ★（canvas / CSS 只认 #RRGGBB 与 #RRGGBBAA，绝不认 Android 口径的 #AARRGGBB）
+// ★ 颜色拆解（全项目唯一的颜色解析器）★
 //   本项目 preset 的颜色契约是 **#AARRGGBB（前两位 = alpha，Android/APK 原文）**，构建期也照这个校验
 //   （build.py 3.25）。但浏览器把 8 位十六进制按 **#RRGGBBAA** 解析 ⇒ 直接把 preset 的 #AARRGGBB 塞给
 //   ctx.fillStyle / SVG stop-color 会【把 alpha 当成红色通道、把蓝色当成 alpha】：
 //     实测 #FFE6A54F（本该是不透明金）被解析成 rgba(255,230,165,0.31) ⇒ 文字整片发灰发暗；
+//     实测同样的值当 SVG 渐变 stop-color 时，logo 被压成 (93,85,65)（= 31% 金压在 #141414 上）；
 //     #66E6A54F（40% 金）被解析成 rgba(102,230,84,0.31) ⇒ 偏绿。
-//   所以一切"要进 canvas/CSS/SVG 的颜色"都必须先过这个函数转成 rgba() 字面量；
-//   颜色自带的 alpha（如 f2 的 0x66、分隔线的 0xBF）由 lgColorAlpha 单独取出、作为 globalAlpha 参与合成，
-//   不能再塞进 fillStyle（否则会被浏览器按"未 premultiply 的 RGB"再混一次，见 40-draw 的注释）。
+//   所以颜色一律先在这里拆成【不含 alpha 的颜色串】+【alpha（0..1）】：
+//     · canvas：颜色串进 fillStyle/addColorStop，alpha 单独用 globalAlpha 合成
+//       （不能把 alpha 留在颜色串里：会被浏览器按"未 premultiply 的 RGB"再混一次，见 40-draw 注释）；
+//     · SVG：颜色串进 stop-color，alpha 进 **独立的 stop-opacity**（SVG 1.1 通用属性）——
+//       WebKit 对 stop-color 里写 rgba() 的支持面窄，不依赖它。
+//   返回 {rgb, alpha, argb}：rgb = '#RRGGBB'（6/3 位原样、8 位剥掉 alpha）、具名色/已是 CSS 形态原样、
+//   transparent 原样、空串 → ''；argb = 输入是否为 8 位 ARGB（调用方要还原 rgba() 字面量时用）。
 //   "@color=X" 前缀（APK 用来显式指定调色板外的颜色）在此剥掉。
-var lgCssColor = function (ref) {
+var lgColorParts = function (ref) {
   var s = String(ref == null ? '' : ref).trim();
   if (s.charAt(0) === '@' && s.indexOf('=') > 0) s = s.slice(s.indexOf('=') + 1).trim();
-  if (!s) return '';
-  if (s === 'transparent') return s;
-  if (s.charAt(0) !== '#') return s;                          // 具名色/已是 CSS 形态：原样
+  if (!s) return { rgb: '', alpha: 1, argb: false };
+  if (s === 'transparent') return { rgb: s, alpha: 0, argb: false };
+  if (s.charAt(0) !== '#') return { rgb: s, alpha: 1, argb: false };              // 具名色/已是 CSS 形态：原样
   var h = s.slice(1);
   if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-  if (h.length === 6 && /^[0-9a-f]{6}$/i.test(h)) return s;   // #RRGGBB：CSS 与项目语义一致
-  if (h.length !== 8 || !/^[0-9a-f]{8}$/i.test(h)) return s;  // 其它形态：交给浏览器自己判
+  if (h.length === 6 && /^[0-9a-f]{6}$/i.test(h)) return { rgb: s, alpha: 1, argb: false };  // #RRGGBB：CSS 与项目语义一致
+  if (h.length !== 8 || !/^[0-9a-f]{8}$/i.test(h)) return { rgb: s, alpha: 1, argb: false }; // 其它形态：交给浏览器自己判
   var a = parseInt(h.slice(0, 2), 16) / 255;
-  var r = parseInt(h.slice(2, 4), 16), g = parseInt(h.slice(4, 6), 16), b = parseInt(h.slice(6, 8), 16);
-  return 'rgba(' + r + ',' + g + ',' + b + ',' + (Math.round(a * 1000) / 1000) + ')';
+  return { rgb: '#' + h.slice(2), alpha: isFinite(a) ? a : 1, argb: true };
+};
+// 取颜色的 alpha（0..1）：#AARRGGBB → AA/255；transparent → 0；其余（#RRGGBB 等）→ 1；
+// "@color=X"（同族前缀）→ 去掉前缀按 X 算。等价于 lgColorParts(...).alpha，只是省掉临时对象。
+var lgColorAlpha = function (ref) { return lgColorParts(ref).alpha; };
+// ARGB → canvas/CSS 颜色串（外部契约不变：8 位 → 'rgba(r,g,b,a)'，6/3 位与具名色原样返回）
+var lgCssColor = function (ref) {
+  var p = lgColorParts(ref);
+  if (!p.rgb) return '';
+  if (!p.argb) return p.rgb;                                 // 6 位 / 3 位 / 具名色：CSS 语义与项目一致，原样
+  var r = parseInt(p.rgb.slice(1, 3), 16), g = parseInt(p.rgb.slice(3, 5), 16), b = parseInt(p.rgb.slice(5, 7), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + (Math.round(p.alpha * 1000) / 1000) + ')';
 };
 // 颜色明度（0=黑 1=白）：用来根据"选中样式的前景色"挑同侧的主题调色板。
 // 输入只可能是 #AARRGGBB 十六进制（preset 已规范化）或 transparent（见下）；
@@ -441,7 +443,15 @@ var paintGradient = function (svg) {
   [[APP('foreground-stop', '0%'), APP('foreground-start', '#000000')], ['100%', APP('foreground-end', '#000000')]]
     .forEach(function (st) {
       var s = document.createElementNS(ns, 'stop');
-      s.setAttribute('offset', st[0]); s.setAttribute('stop-color', st[1]);
+      // ★ 颜色必须先归一（lgColorParts）：preset 是 #AARRGGBB，而 SVG 把 8 位十六进制按 #RRGGBBAA 解析。
+      //   直接塞原值 ⇒ 不透明金 #FFE6A54F 变成 rgb(255,230,165) + alpha 0x4F=31%（logo 实测被压成 (93,85,65)）。
+      //   正解：stop-color 只放 RGB；alpha 用 SVG 1.1 的独立属性 stop-opacity
+      //   （不写 "stop-color: rgba(...)"：WebKit 对它的支持面窄）。alpha=1 时不下发，
+      //   这样 6 位色的款式（rose/dark/light/red）DOM 与像素都逐字节不变。
+      var c = lgColorParts(st[1]);
+      s.setAttribute('offset', st[0]);
+      s.setAttribute('stop-color', c.rgb);
+      if (c.alpha < 1) s.setAttribute('stop-opacity', String(c.alpha));
       g.appendChild(s);
     });
   defs.appendChild(g);
