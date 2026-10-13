@@ -74,27 +74,86 @@ var lgRgba = function (argb, alphaScale) {
   if (argb == null || argb === '') return null;
   var s = String(argb).trim();
   if (s.charAt(0) !== '#') return LG_NAMED[s] || s;
-  var h = s.slice(1);
-  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-  var a = 1, r, g, b;
-  if (h.length === 8) { a = parseInt(h.slice(0, 2), 16) / 255; h = h.slice(2); }
-  r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 2 + 2), 16); b = parseInt(h.slice(4, 6), 16);
+  var h = lgHex6(s);
+  if (h == null) return s;
+  var a = (s.slice(1).length === 8) ? (parseInt(s.slice(1, 3), 16) / 255) : 1;
+  var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
   if (alphaScale != null) a = a * alphaScale;
   if (a >= 0.999) return 'rgb(' + r + ',' + g + ',' + b + ')';
   return 'rgba(' + r + ',' + g + ',' + b + ',' + (Math.round(a * 1000) / 1000) + ')';
 };
-var lgAlphaOf = function (argb) {
-  var s = String(argb == null ? '' : argb).trim();
-  if (s.charAt(0) !== '#' || s.length !== 9) return 1;
-  return parseInt(s.slice(1, 3), 16) / 255;
+// "#RGB" / "#RRGGBB" / "#AARRGGBB" → "RRGGBB"（其它返回 null）
+var lgHex6 = function (c) {
+  var s = String(c == null ? '' : c).trim();
+  if (s.charAt(0) !== '#') return null;
+  var h = s.slice(1);
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  if (h.length === 8) h = h.slice(2);
+  return (h.length === 6 && /^[0-9a-f]{6}$/i.test(h)) ? h : null;
 };
-// 主题调色板：preset.wmRes.backgrounds = [{name, value:"@color=#AARRGGBB", foreground:[...]}]
-var lgThemeOf = function (preset) {
-  var list = ((preset || {}).wmRes || {}).backgrounds || [];
-  for (var i = 0; i < list.length; i++) if (list[i].name === 'white') return list[i];
-  return list[0] || null;
+// 取颜色的 alpha（0..1）：#AARRGGBB → AA/255；#RGB/#RRGGBB/具名色 → 1；transparent → 0；
+// "@color=X"（同族前缀，APK 里用来显式指定调色板外的颜色）→ 去掉前缀按 X 算。
+var lgColorAlpha = function (ref) {
+  var s = String(ref == null ? '' : ref).trim();
+  if (s.charAt(0) === '@' && s.indexOf('=') > 0) s = s.slice(s.indexOf('=') + 1).trim();
+  if (s === 'transparent') return 0;
+  if (s.charAt(0) !== '#') return 1;
+  var h = s.slice(1);
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  if (h.length !== 8 || !/^[0-9a-f]{8}$/i.test(h)) return 1;
+  var a = parseInt(h.slice(0, 2), 16) / 255;
+  return isFinite(a) ? a : 1;
 };
-var lgPalette = function (theme) { return (theme && theme.foreground) || []; };
+// 颜色明度（0=黑 1=白）：用来根据"选中样式的前景色"挑同侧的主题调色板
+var lgLumOf = function (c) {
+  var s = String(c == null ? '' : c).trim().toLowerCase();
+  if (s === 'white') return 1;
+  if (s === 'black') return 0;
+  if (s === 'transparent') return 1;             // 透明底上的前景按"浅色文字"一侧归类
+  var h = lgHex6(s);
+  if (h == null) return 0;
+  var r = parseInt(h.slice(0, 2), 16) / 255, g = parseInt(h.slice(2, 4), 16) / 255, b = parseInt(h.slice(4, 6), 16) / 255;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+// 主题调色板：preset.wmRes.background = [{name, value:"@color=#AARRGGBB", foreground:[...]}]（APK 原文）
+// 主题不是 preset 里写死的 @background=white，而是【由选中的样式决定】：
+// 样式前景是深色（浅底：浅色/金色）→ 取前景数组 [0] 也是深色的那套（莱卡：white / light_blur）；
+// 样式前景是浅色（深底：深色/红色/91 的白色款）→ 取 [0] 也是浅色的那套（black / dark_blur / transparent_white）。
+// 两套调色板的 alpha 只在 [1] 上不同（0.30 vs 0.70），[2] 一律 50%，所以选错也只影响 [1] 的分隔线。
+var lgPaletteFor = function (preset, style) {
+  var list = ((preset || {}).wmRes || {}).background || [];
+  var want = lgLumOf((style || {})['foreground-start'] || '#000000');
+  var best = null, bd = Infinity;
+  for (var i = 0; i < list.length; i++) {
+    var pal = (list[i] || {}).foreground || [];
+    if (!pal.length) continue;
+    var d = Math.abs(lgLumOf(pal[0]) - want);
+    if (d < bd) { bd = d; best = list[i]; }
+  }
+  return best;
+};
+// ★ @foreground=N 的 alpha 语义（本次修复的根因）：
+//   权威定义（APK wmRes.background[theme].foreground 原文 + 参考实现 WmRes.resolve_color）：
+//     @foreground=N ⇒ 调色板第 N 项【本身就是一个带 alpha 的 ARGB 颜色】，不是"纯前景色再乘一个透明度"。
+//   莱卡 1 号（浅底主题）调色板 = ["#FF000000"(100%), "#4D000000"(30%), "#80000000"(50%), "black"(100%), "#BF000000"(75%)]
+//     ⇒ f2（日期/经纬度，color=@foreground=2）必须是【50% 黑】。
+//   以前引擎忽略 =N，一律画不透明前景色 ⇒ 第二行偏深（用户反馈）。
+//   调色板缺席 / N 越界 → 退回近似式 alpha = 1 − 0.25·N（=0→100% =1→75% =2→50% =3→25%），
+//   实测参考件 =1 是 30%（调色板 #4D000000），与近似式不符，故调色板优先。
+var lgForegroundAlpha = function (n, style) {
+  var idx = parseInt(n, 10);
+  if (!isFinite(idx) || idx < 0) idx = 0;
+  var pal = lgPaletteFor(CONFIG, style);
+  var list = pal ? (pal.foreground || []) : [];
+  if (idx < list.length) return lgColorAlpha(list[idx]);
+  return Math.max(0, 1 - 0.25 * idx);
+};
+// 文字颜色（font.color）的透明度：@foreground=N → 调色板第 N 项；其余（#AARRGGBB / @color=#.. / 具名色）→ 颜色自带 alpha
+var lgTextAlpha = function (ref, style) {
+  var s = String(ref == null ? '' : ref).trim();
+  if (s.indexOf('@foreground=') === 0) return lgForegroundAlpha(s.split('=')[1], style);
+  return lgColorAlpha(s);
+};
 
 // ---------------------------------------------------------------- 文本占位符（APK fill_views 语义）
 // 模板写法： "@model= @{series}@{versionNumber}" / "@time=@wm_time_yyyy_MM_dd_HH_mm"
@@ -193,7 +252,10 @@ var lgFontFam = function (fam) {
 var lgTextWidth = function (text, font, sizePx) {
   if (_lgCtx == null) _lgCtx = document.createElement('canvas').getContext('2d');
   var ls = parseFloat(font['letter-spacing']) || 0;        // em
-  _lgCtx.font = (font['font-weight'] || 400) + ' ' + sizePx + 'px ' + lgFontFam(font['font-family']);
+  // 字重必须与 40-draw 的绘制走【同一个】映射（wmFontWeight：设计字重 → 最近百位档），
+  // 否则"量的宽度"和"画的字形"不是同一个字重。
+  var fw = (typeof wmFontWeight === 'function') ? wmFontWeight(font) : (font['font-weight'] || 400);
+  _lgCtx.font = fw + ' ' + sizePx + 'px ' + lgFontFam(font['font-family']);
   var w = _lgCtx.measureText(text).width;
   return w + ls * sizePx * String(text).length;            // CSS/Paint 每字符都补一个 letterSpacing
 };
@@ -300,14 +362,28 @@ var textCss = function (v) {
 };
 
 // 节点自身的填充：
-//   "@foreground=N" = 前景色条（分隔线）—— 用样式渐变 + line-opacity
+//   "@foreground=N" = 前景色条（分隔线）—— 颜色取样式前景，透明度取【调色板第 N 项的 alpha】
 //   "@background=name" = 主题底色 —— 本项目由 styles 的 background-color 统一决定，节点不再刷一层
+// ★ 不再另乘 line-opacity：本项目的 line-opacity 就是调色板第 1 项 alpha 的手工等价物
+//   （leica 浅色 0.3 = #4D/255、深色 0.7 = #B2/255，由 apk2preset 从 APK 调色板换算而来），
+//   两个都在就会重复相乘 —— 参考件 leica_1 的分隔线实测是 30% 黑，再乘一次会掉到 9%（见 _local 对照）。
+//   分隔线（N=1）保持样式里的 line-opacity 为准（5 个样式里只有 red 款手工写了 0.6，其余等于调色板
+//   第 1 项的 alpha）⇒ 零回归；N≥2 用调色板第 N 项的 alpha；调色板缺席时退回近似式 1−0.25N。
+var lgFillAlpha = function (n, style) {
+  var idx = parseInt(n, 10);
+  if (!isFinite(idx) || idx < 0) idx = 0;
+  if (idx === 1) {
+    var lo = parseFloat(APP('line-opacity', NaN));
+    if (isFinite(lo)) return Math.max(0, Math.min(1, lo));
+  }
+  return lgForegroundAlpha(idx, style);
+};
 var fillFor = function (v) {
   var bg = v.background;
   if (!bg) return null;
   if (bg.indexOf('@foreground=') === 0) {
     var idx = parseInt(bg.split('=')[1], 10) || 0;
-    return { gradient: true, opacity: (idx === 1) ? APP('line-opacity', 1) : 1 };
+    return { foreground: true, alpha: lgFillAlpha(idx, CONFIG.appearance) };
   }
   return null;
 };
@@ -545,16 +621,23 @@ var wmFontFam = function (fam) {
   return out.join(',');
 };
 
-// canvas 的 ctx.font 只认 100..900 的【百位档】权重（变量字体的小米 501/620 这类值
-// 在部分实现里会被判为非法 ⇒ 整条声明失败 ⇒ 回退默认字体，字形变成衬线）。这里收敛到最近百位。
-var wmFontWeight = function (w) {
-  var n = parseFloat(w);
+// 字重映射（唯一口径：05-layout 的测宽与这里的绘制都必须走它，否则"量的宽度"和"画的字形"不是一个字重）：
+//   canvas 的 ctx.font 只认 100..900 的【百位档】，不支持 CSS 变量字体的 wght 变体轴（501/451/620 这类
+//   数值一旦写进去，部分实现会判整条声明非法 ⇒ 回退默认字体，字形变衬线）。所以收敛到最近的百位档，
+//   观感近似即可（我们是系统字体，不是 MiSans VF，做不到像素级一致）。
+//   取数优先级：font['design-weight']（= APK wmRes.fonts.*.variation 的 'wght' N，权威设计值）
+//              → font['font-weight']（apk2preset 的手工档位 620/550/500，只用于没有 design-weight 的旧 preset）。
+//   映射表：≤350→300 ｜ 401→400 ｜ 451→500 ｜ 501→500 ｜ 550→600 ｜ 620→600 ｜ ≥851→900（就近四舍五入）
+var wmFontWeight = function (f) {
+  var raw = (f && typeof f === 'object')
+    ? ((f['design-weight'] != null && f['design-weight'] !== '') ? f['design-weight'] : f['font-weight'])
+    : f;
+  var n = parseFloat(raw);
   if (!isFinite(n) || n <= 0) return 400;
-  var step = Math.round(n / 100) * 100;
-  return Math.max(100, Math.min(900, step));
+  return Math.max(100, Math.min(900, Math.round(n / 100) * 100));
 };
 var wmFontStr = function (f, sizePx) {
-  return wmFontWeight(f['font-weight']) + ' ' + sizePx + 'px ' + wmFontFam(f['font-family']);
+  return wmFontWeight(f) + ' ' + sizePx + 'px ' + wmFontFam(f['font-family']);
 };
 
 // text-shadow: "0 1px 1px #80000000" / "0px 1px 2px rgba(0,0,0,.6)" → ctx.shadow*
@@ -579,7 +662,13 @@ var wmDrawText = function (ctx, v) {
   ctx.save();
   ctx.font = wmFontStr(f, sizePx);
   ctx.textBaseline = 'alphabetic';
-  if (f.opacity != null) ctx.globalAlpha = Math.max(0, Math.min(1, parseFloat(f.opacity)));
+  // 文字透明度 = 颜色自带的 alpha × font.opacity（两个独立来源，同时存在就【相乘】）：
+  //   颜色 alpha：@foreground=N → 当前主题调色板第 N 项的 alpha（莱卡 1 号 f2 = @foreground=2 ⇒ 50% 黑，
+  //   以前被忽略 ⇒ 日期/经纬度那行偏深）；#AARRGGBB / @color=#AARRGGBB → 颜色通道里的 alpha。
+  //   font.opacity：字体对象上的显式不透明度（目前 preset 未用，保留语义）。
+  var ca = lgTextAlpha(f.color, CONFIG.appearance);
+  if (f.opacity != null) ca *= parseFloat(f.opacity);
+  ctx.globalAlpha = isFinite(ca) ? Math.max(0, Math.min(1, ca)) : 1;
   wmShadow(ctx, f.shadow);
   var ls = (parseFloat(f['letter-spacing']) || 0) * sizePx;
   var lines = String(v._text).split('\n');
@@ -604,14 +693,14 @@ var wmDrawText = function (ctx, v) {
   ctx.restore();
 };
 
-// 分隔线等：节点自身带 @foreground 填充 ⇒ 用【纯前景色】铺（与参考实现 resolve_color 一致：
-// 参考件就是把 @foreground=N 解析成一个纯色，再乘 line-opacity）。
-// 早先用渐变铺，取到的是渐变端色，超出容差；纯色既贴合参考件也在容差内最稳。
+// 分隔线等：节点自身带 @foreground 填充 ⇒ 用【样式前景色 + 调色板第 N 项的 alpha】铺（与参考实现
+// resolve_color 一致：参考件就是把 @foreground=N 解析成一个带 alpha 的纯色）。alpha 的推导与
+// "为什么不另乘 line-opacity" 见 10-style.js 的 lgFillAlpha 注释。
 var wmDrawFill = function (ctx, v) {
   var fill = fillFor(v);
-  if (!fill || !fill.gradient) return false;
+  if (!fill || !fill.foreground) return false;
   ctx.save();
-  if (fill.opacity != null) ctx.globalAlpha = Math.max(0, Math.min(1, fill.opacity));
+  if (fill.alpha != null) ctx.globalAlpha = Math.max(0, Math.min(1, fill.alpha));
   ctx.fillStyle = APP('foreground-start', '#000000');
   ctx.fillRect(v.ax, v.ay, v.w, v.h);
   ctx.restore();
