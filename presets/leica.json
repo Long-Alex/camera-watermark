@@ -67,6 +67,7 @@
       "foreground-direction": "90deg",
       "line-opacity": 0.6,
       "background-color": "#141414",
+      "background-image": "",
       "background-fit": ""
     }
   },
