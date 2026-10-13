@@ -25,7 +25,9 @@
       "foreground-stop": "30%",
       "foreground-direction": "90deg",
       "line-opacity": 0.3,
-      "background-color": "#FFFFFF"
+      "background-color": "#FFFFFF",
+      "background-image": "",
+      "background-fit": ""
     },
     "dark": {
       "foreground-start": "#FFFFFF",
@@ -33,7 +35,9 @@
       "foreground-stop": "30%",
       "foreground-direction": "90deg",
       "line-opacity": 0.7,
-      "background-color": "#141414"
+      "background-color": "#141414",
+      "background-image": "",
+      "background-fit": ""
     },
     "rose": {
       "foreground-start": "#FDC9AE",
@@ -41,7 +45,9 @@
       "foreground-stop": "30%",
       "foreground-direction": "45deg",
       "line-opacity": 0.7,
-      "background-color": "#1D1D1F"
+      "background-color": "#1D1D1F",
+      "background-image": "",
+      "background-fit": ""
     },
     "red": {
       "foreground-start": "#FFFFFF",
@@ -49,9 +55,9 @@
       "foreground-stop": "30%",
       "foreground-direction": "90deg",
       "line-opacity": 0.6,
+      "background-color": "#141414",
       "background-image": "red",
-      "background-fit": "cover",
-      "background-color": "#141414"
+      "background-fit": "cover"
     }
   },
   "compose": {
@@ -308,13 +314,9 @@
                   "margin_top": "0dp",
                   "display_height": "0dp",
                   "path": "",
-                  "childViews": [],
-                  "_w": 0.0,
-                  "_h": 0.0
+                  "childViews": []
                 }
-              ],
-              "_w": 0.0,
-              "_h": 0.0
+              ]
             },
             {
               "type": "Layout",
@@ -325,9 +327,7 @@
               "gravity": "left",
               "margin_left": "0dp",
               "margin_top": "0dp",
-              "childViews": [],
-              "_w": 1080.0,
-              "_h": 40.0
+              "childViews": []
             },
             {
               "type": "Layout",
@@ -378,35 +378,13 @@
                               "text": "@model=@{series}@{versionNumber}",
                               "text_upper": false,
                               "font_ref": "f1",
-                              "childViews": [],
-                              "_font": {
-                                "size": 30.6,
-                                "color": "@foreground=0",
-                                "typeface": "default",
-                                "variation": "'wght' 501",
-                                "letterSpacing": 0.0,
-                                "shadow": null,
-                                "font-size": 30.6,
-                                "line-height": 40.6,
-                                "font-weight": 620,
-                                "design-weight": 501,
-                                "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
-                                "_ls": 0.0
-                              },
-                              "_w": 0.0,
-                              "_h": 40.6
+                              "childViews": []
                             }
-                          ],
-                          "_w": 0.0,
-                          "_h": 40.6
+                          ]
                         }
-                      ],
-                      "_w": 0.0,
-                      "_h": 40.6
+                      ]
                     }
-                  ],
-                  "_w": 0.0,
-                  "_h": 40.6
+                  ]
                 },
                 {
                   "type": "Layout",
@@ -428,9 +406,7 @@
                       "display_width": "0dp",
                       "path": "pathType=direct;path=logo",
                       "max_width": 256,
-                      "childViews": [],
-                      "_w": 64.0,
-                      "_h": 64.0
+                      "childViews": []
                     },
                     {
                       "type": "Layout",
@@ -442,9 +418,7 @@
                       "gravity": "center_vertical",
                       "margin_left": "24dp",
                       "margin_top": "0dp",
-                      "childViews": [],
-                      "_w": 2.0,
-                      "_h": 64.0
+                      "childViews": []
                     },
                     {
                       "type": "Layout",
@@ -462,23 +436,7 @@
                           "layout_gravity": "right",
                           "text": "@exif=@{focal}mm  ƒ/@{aperture}  @{speed}s  ISO@{iso}",
                           "font_ref": "f3",
-                          "childViews": [],
-                          "_font": {
-                            "size": 30.0,
-                            "color": "@foreground=0",
-                            "typeface": "default",
-                            "variation": "'wght' 501",
-                            "letterSpacing": 0.0,
-                            "shadow": null,
-                            "font-size": 30.0,
-                            "line-height": 39.8,
-                            "font-weight": 620,
-                            "design-weight": 501,
-                            "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
-                            "_ls": 0.0
-                          },
-                          "_w": 0.0,
-                          "_h": 39.8
+                          "childViews": []
                         },
                         {
                           "type": "TextView",
@@ -488,36 +446,13 @@
                           "layout_gravity": "left",
                           "text": "@time=@wm_time_yyyy_MM_dd_HH_mm",
                           "font_ref": "f2",
-                          "childViews": [],
-                          "_font": {
-                            "size": 22.0,
-                            "color": "@foreground=2",
-                            "typeface": "default",
-                            "variation": "'wght' 451",
-                            "letterSpacing": 0.083,
-                            "shadow": null,
-                            "font-size": 22.0,
-                            "line-height": 29.2,
-                            "font-weight": 550,
-                            "design-weight": 451,
-                            "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
-                            "_ls": 0.083,
-                            "letter-spacing": "0.083em"
-                          },
-                          "_w": 0.0,
-                          "_h": 29.2
+                          "childViews": []
                         }
-                      ],
-                      "_w": 0.0,
-                      "_h": 79.0
+                      ]
                     }
-                  ],
-                  "_w": 114.0,
-                  "_h": 79.0
+                  ]
                 }
-              ],
-              "_w": 1080.0,
-              "_h": 79.0
+              ]
             },
             {
               "type": "Layout",
@@ -528,71 +463,46 @@
               "gravity": "left",
               "margin_left": "0dp",
               "margin_top": "0dp",
-              "childViews": [],
-              "_w": 1080.0,
-              "_h": 40.0
+              "childViews": []
             }
-          ],
-          "_w": 1080.0,
-          "_h": 159.0
+          ]
         }
       ]
     }
   ],
   "fonts": {
     "f1": {
-      "size": 30.6,
       "color": "@foreground=0",
       "typeface": "default",
-      "variation": "'wght' 501",
-      "letterSpacing": 0.0,
-      "shadow": null,
       "font-size": 30.6,
       "line-height": 40.6,
       "font-weight": 620,
       "design-weight": 501,
-      "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif"
+      "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
+      "shadow": null,
+      "letter-spacing": "0em"
     },
     "f2": {
-      "size": 22.0,
       "color": "@foreground=2",
       "typeface": "default",
-      "variation": "'wght' 451",
-      "letterSpacing": 0.083,
-      "shadow": null,
       "font-size": 22.0,
       "line-height": 29.2,
       "font-weight": 550,
       "design-weight": 451,
       "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
+      "shadow": null,
       "letter-spacing": "0.083em"
     },
     "f3": {
-      "size": 30.0,
       "color": "@foreground=0",
       "typeface": "default",
-      "variation": "'wght' 501",
-      "letterSpacing": 0.0,
-      "shadow": null,
       "font-size": 30.0,
       "line-height": 39.8,
       "font-weight": 620,
       "design-weight": 501,
-      "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif"
-    },
-    "f4": {
-      "size": 20.0,
-      "color": "@foreground=0",
-      "typeface": "default",
-      "variation": "'wght' 401",
-      "letterSpacing": 0.028,
-      "shadow": null,
-      "font-size": 20.0,
-      "line-height": 26.5,
-      "font-weight": 500,
-      "design-weight": 401,
       "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
-      "letter-spacing": "0.028em"
+      "shadow": null,
+      "letter-spacing": "0em"
     }
   },
   "wmRes": {
@@ -605,7 +515,7 @@
           "#FF000000",
           "#4D000000",
           "#80000000",
-          "black",
+          "#FF000000",
           "#BF000000"
         ]
       },
@@ -617,7 +527,7 @@
           "#FFFFFFFF",
           "#B2FFFFFF",
           "#80FFFFFF",
-          "white",
+          "#FFFFFFFF",
           "#BFFFFFFF"
         ]
       },
@@ -629,7 +539,7 @@
           "#FF000000",
           "#4D000000",
           "#80000000",
-          "black",
+          "#FF000000",
           "#BF000000"
         ]
       },
@@ -641,38 +551,10 @@
           "#FFFFFFFF",
           "#B2FFFFFF",
           "#80FFFFFF",
-          "white",
+          "#FFFFFFFF",
           "#BFFFFFFF"
         ]
       }
-    ],
-    "fonts": {
-      "f1": {
-        "size": 30.6,
-        "color": "@foreground=0",
-        "typeface": "default",
-        "variation": "'wght' 501"
-      },
-      "f2": {
-        "size": 22.0,
-        "color": "@foreground=2",
-        "typeface": "default",
-        "variation": "'wght' 451",
-        "letterSpacing": 0.083
-      },
-      "f3": {
-        "size": 30.0,
-        "color": "@foreground=0",
-        "typeface": "default",
-        "variation": "'wght' 501"
-      },
-      "f4": {
-        "size": 20.0,
-        "color": "@foreground=0",
-        "typeface": "default",
-        "variation": "'wght' 401",
-        "letterSpacing": 0.028
-      }
-    }
+    ]
   }
 }

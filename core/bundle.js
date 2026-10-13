@@ -69,19 +69,10 @@ var lgGrav = function (s) {
 };
 
 // ---------------------------------------------------------------- 颜色（APK：#AARRGGBB / @foreground=N / @color=）
-var LG_NAMED = { black: '#000000', white: '#FFFFFF', transparent: 'transparent' };
-var lgRgba = function (argb, alphaScale) {
-  if (argb == null || argb === '') return null;
-  var s = String(argb).trim();
-  if (s.charAt(0) !== '#') return LG_NAMED[s] || s;
-  var h = lgHex6(s);
-  if (h == null) return s;
-  var a = (s.slice(1).length === 8) ? (parseInt(s.slice(1, 3), 16) / 255) : 1;
-  var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
-  if (alphaScale != null) a = a * alphaScale;
-  if (a >= 0.999) return 'rgb(' + r + ',' + g + ',' + b + ')';
-  return 'rgba(' + r + ',' + g + ',' + b + ',' + (Math.round(a * 1000) / 1000) + ')';
-};
+// ★ 颜色一律是 8 位 ARGB 十六进制（#AARRGGBB，Android 口径：前两位 = alpha）：
+//   两个 preset 的调色板（wmRes.background[].foreground）与字体色都已按这一种形态规范化，
+//   构建期也会拒绝非 #AARRGGBB 的调色板项（build.py 3.25）。以前混用 CSS 具名色
+//   （"black" / "white"）逼着这里带一张具名色表 + 一个 lgRgba 解析器 —— 两者都已删除。
 // "#RGB" / "#RRGGBB" / "#AARRGGBB" → "RRGGBB"（其它返回 null）
 var lgHex6 = function (c) {
   var s = String(c == null ? '' : c).trim();
@@ -91,7 +82,7 @@ var lgHex6 = function (c) {
   if (h.length === 8) h = h.slice(2);
   return (h.length === 6 && /^[0-9a-f]{6}$/i.test(h)) ? h : null;
 };
-// 取颜色的 alpha（0..1）：#AARRGGBB → AA/255；#RGB/#RRGGBB/具名色 → 1；transparent → 0；
+// 取颜色的 alpha（0..1）：#AARRGGBB → AA/255；transparent → 0；其余（#RRGGBB 等）→ 1；
 // "@color=X"（同族前缀，APK 里用来显式指定调色板外的颜色）→ 去掉前缀按 X 算。
 var lgColorAlpha = function (ref) {
   var s = String(ref == null ? '' : ref).trim();
@@ -104,11 +95,11 @@ var lgColorAlpha = function (ref) {
   var a = parseInt(h.slice(0, 2), 16) / 255;
   return isFinite(a) ? a : 1;
 };
-// 颜色明度（0=黑 1=白）：用来根据"选中样式的前景色"挑同侧的主题调色板
+// 颜色明度（0=黑 1=白）：用来根据"选中样式的前景色"挑同侧的主题调色板。
+// 输入只可能是 #AARRGGBB 十六进制（preset 已规范化）或 transparent（见下）；
+// 不再认 "black" / "white" 这类具名色（那是在迁就两套写法混用的调色板）。
 var lgLumOf = function (c) {
   var s = String(c == null ? '' : c).trim().toLowerCase();
-  if (s === 'white') return 1;
-  if (s === 'black') return 0;
   if (s === 'transparent') return 1;             // 透明底上的前景按"浅色文字"一侧归类
   var h = lgHex6(s);
   if (h == null) return 0;
@@ -900,14 +891,18 @@ var wmPublish = function (canvas) {
     // 底色 / 背景图 / 文字 / 分隔线 / logo 全部由 40-draw.js 按布局树的绝对坐标画进 #wm-canvas，
     // 再把 canvas 发布成页面里唯一的一个 <img>（取图动作 detect.images 靠提取这个 <img>）。
 
-    // 3) 选 layout 变体：有 layout / layout_loc_off 两个就按 GPS 有无二选一；
-    //    单变体（如 91 号的 center_top）直接用；多而非常规命名时取第一个。
+    // 3) 选 layout 变体 —— 变体名是一套固定词汇（build.py 会校验，两个 preset 必须一致）：
+    //      layout = 有定位用的版式；layout_loc_off = 无定位用的版式；
+    //      单变体 preset 只写 layout（= 两种定位共用同一版式，bandDpGps = bandDpLocOff）。
+    //    以前对"非常规命名"（如 91 号的 center_top）用 names[0] 兜底，那是在迁就两个 preset
+    //    命名不一致；现在 preset 已统一成 layout/layout_loc_off，兜底删除：不满足契约就报错。
     var gps = hasGps(), variants = CONFIG.layout_group || [], pick = null, pickName = '';
     var names = [];
     for (var v = 0; v < variants.length; v++) names.push(Object.keys(variants[v])[0]);
     var want = gps ? 'layout' : 'layout_loc_off';
     if (names.indexOf(want) >= 0) pickName = want;
-    else pickName = names.length ? names[0] : '';
+    else if (names.length === 1) pickName = names[0];   // 单变体：有/无定位共用同一版式
+    if (!pickName) throw new Error('layout_group 缺少变体 ' + want + '（多变体 preset 必须同时给 layout 与 layout_loc_off）');
     for (var w = 0; w < variants.length; w++) {
       if (Object.keys(variants[w])[0] === pickName) { pick = variants[w][pickName]; break; }
     }

@@ -4,11 +4,10 @@
     "id": "leica91",
     "designShort": 1080,
     "bandDpByVariant": {
-      "center_top": 180.5
+      "layout": 180.5
     },
     "position": "in",
     "source": "xiaomi apk leica/91 config.json",
-    "note_variant": "单变体模板：layout/layout_loc_off 与 center_top 同值，仅用于快捷指令兜底（JS 按 layout_group 选变体）",
     "bandDpGps": 180.5,
     "bandDpLocOff": 180.5
   },
@@ -23,7 +22,9 @@
       "foreground-stop": "30%",
       "foreground-direction": "90deg",
       "line-opacity": 0.5,
-      "background-color": "transparent"
+      "background-color": "transparent",
+      "background-image": "",
+      "background-fit": ""
     },
     "dark": {
       "foreground-start": "#1D1D1F",
@@ -31,21 +32,23 @@
       "foreground-stop": "30%",
       "foreground-direction": "90deg",
       "line-opacity": 0.4,
-      "background-color": "transparent"
+      "background-color": "transparent",
+      "background-image": "",
+      "background-fit": ""
     }
   },
   "compose": {
     "mode": "overlay",
+    "stitch": {
+      "direction": "Vertically",
+      "spacing": 0
+    },
     "overlay": {
       "anchor": "Center",
       "width": "photo",
       "height": 180.5,
       "rotation": 0,
       "opacityPercent": 100
-    },
-    "stitch": {
-      "direction": "Vertically",
-      "spacing": 0
     }
   },
   "fallback": {
@@ -59,7 +62,7 @@
   },
   "layout_group": [
     {
-      "center_top": [
+      "layout": [
         {
           "type": "Layout",
           "id": "all_content",
@@ -79,9 +82,7 @@
               "margin_top": "0dp",
               "display_height": "0dp",
               "path": "",
-              "childViews": [],
-              "_lw": 0.0,
-              "_lh": 0.0
+              "childViews": []
             },
             {
               "type": "Layout",
@@ -132,13 +133,9 @@
                               "layout_gravity": "center_vertical",
                               "text": "@model= @{series}@{versionNumber}",
                               "font_ref": "f1",
-                              "childViews": [],
-                              "_lw": 0.0,
-                              "_lh": 28.6
+                              "childViews": []
                             }
-                          ],
-                          "_lw": 0.0,
-                          "_lh": 30.0
+                          ]
                         },
                         {
                           "type": "Layout",
@@ -160,9 +157,7 @@
                               "margin_top": "0dp",
                               "text": "@time=@wm_time_yyyy_MM_dd",
                               "font_ref": "f3",
-                              "childViews": [],
-                              "_lw": 0.0,
-                              "_lh": 26.5
+                              "childViews": []
                             },
                             {
                               "type": "TextView",
@@ -172,21 +167,13 @@
                               "margin_top": "0dp",
                               "text": "@time=@wm_time_HH_mm",
                               "font_ref": "f3",
-                              "childViews": [],
-                              "_lw": 0.0,
-                              "_lh": 26.5
+                              "childViews": []
                             }
-                          ],
-                          "_lw": 0.0,
-                          "_lh": 53.0
+                          ]
                         }
-                      ],
-                      "_lw": 0.0,
-                      "_lh": 142.0
+                      ]
                     }
-                  ],
-                  "_lw": 0.0,
-                  "_lh": 142.0
+                  ]
                 },
                 {
                   "type": "Layout",
@@ -208,13 +195,9 @@
                       "display_width": "0dp",
                       "path": "pathType=direct;path=logo",
                       "max_width": 0,
-                      "childViews": [],
-                      "_lh": 60.0,
-                      "_lw": 0.0
+                      "childViews": []
                     }
-                  ],
-                  "_lw": 0.0,
-                  "_lh": 60.0
+                  ]
                 },
                 {
                   "type": "Layout",
@@ -243,13 +226,9 @@
                           "layout_gravity": "center",
                           "text": "@location=location_latlng_switch;@locationLimit=0.8;@LOC=oo",
                           "font_ref": "f3",
-                          "childViews": [],
-                          "_lw": 0.0,
-                          "_lh": 26.5
+                          "childViews": []
                         }
-                      ],
-                      "_lw": 0.0,
-                      "_lh": 55.0
+                      ]
                     },
                     {
                       "type": "Layout",
@@ -268,9 +247,7 @@
                           "layout_gravity": "right|center_vertical",
                           "text": "@exif=@{focal}mm  ISO @{iso}",
                           "font_ref": "f3",
-                          "childViews": [],
-                          "_lw": 0.0,
-                          "_lh": 26.5
+                          "childViews": []
                         },
                         {
                           "type": "TextView",
@@ -278,69 +255,40 @@
                           "layout_gravity": "right|center_vertical",
                           "text": "@exif=ƒ/@{aperture}  @{speed}s",
                           "font_ref": "f3",
-                          "childViews": [],
-                          "_lw": 0.0,
-                          "_lh": 26.5
+                          "childViews": []
                         }
-                      ],
-                      "_lw": 0.0,
-                      "_lh": 58.0
+                      ]
                     }
-                  ],
-                  "_lw": 1080.0,
-                  "_lh": 60.0
+                  ]
                 }
-              ],
-              "_lw": 1080.0,
-              "_lh": 180.5
+              ]
             }
-          ],
-          "_lw": 1080.0,
-          "_lh": 180.5
+          ]
         }
       ]
     }
   ],
   "fonts": {
     "f1": {
-      "size": 21.6,
       "color": "#FFFFFFFF",
       "typeface": "default",
-      "variation": "'wght' 501",
-      "letterSpacing": 0.0,
-      "shadow": "0 1px 1px #80000000",
       "font-size": 21.6,
       "line-height": 28.6,
       "font-weight": 620,
       "design-weight": 501,
-      "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif"
-    },
-    "f2": {
-      "size": 13.2,
-      "color": "#FFFFFFFF",
-      "typeface": "default",
-      "variation": "'wght' 401",
-      "letterSpacing": 0.028,
-      "shadow": "0 1px 1px #80000000",
-      "font-size": 13.2,
-      "line-height": 17.5,
-      "font-weight": 500,
-      "design-weight": 401,
       "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
-      "letter-spacing": "0.028em"
+      "shadow": "0 1px 1px #80000000",
+      "letter-spacing": "0em"
     },
     "f3": {
-      "size": 20.0,
       "color": "#FFFFFFFF",
       "typeface": "@file=lg1056_regular.otf",
-      "variation": "'wght' 401",
-      "letterSpacing": 0.15,
-      "shadow": "0 1px 1px #80000000",
       "font-size": 20.0,
       "line-height": 26.5,
       "font-weight": 500,
       "design-weight": 401,
       "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
+      "shadow": "0 1px 1px #80000000",
       "letter-spacing": "0.15em"
     }
   },
@@ -351,50 +299,10 @@
         "icon": "@img=icon_background_white.webp",
         "value": "@color=#00FFFFFF",
         "foreground": [
-          "white",
+          "#FFFFFFFF",
           "#BFFFFFFF"
         ]
       }
-    ],
-    "fonts": {
-      "f1": {
-        "size": 21.6,
-        "color": "#FFFFFFFF",
-        "typeface": "default",
-        "variation": "'wght' 501",
-        "shadow": [
-          "1f",
-          "0f",
-          "0f",
-          "#80000000"
-        ]
-      },
-      "f2": {
-        "size": 13.2,
-        "color": "#FFFFFFFF",
-        "typeface": "default",
-        "variation": "'wght' 401",
-        "letterSpacing": 0.028,
-        "shadow": [
-          "1f",
-          "0f",
-          "0f",
-          "#80000000"
-        ]
-      },
-      "f3": {
-        "size": 20,
-        "color": "#FFFFFFFF",
-        "typeface": "@file=lg1056_regular.otf",
-        "variation": "'wght' 401",
-        "letterSpacing": 0.15,
-        "shadow": [
-          "1f",
-          "0f",
-          "0f",
-          "#80000000"
-        ]
-      }
-    }
+    ]
   }
 }
