@@ -96,7 +96,6 @@
           "margin_left": "0dp",
           "margin_top": "0dp",
           "background": "@background=white",
-          "background_optional": true,
           "childViews": [
             {
               "type": "Layout",
@@ -178,7 +177,6 @@
                               "margin_left": "0dp",
                               "layout_gravity": "center_vertical",
                               "text": "@model=@{series}@{versionNumber}",
-                              "text_upper": false,
                               "font_ref": "f1",
                               "childViews": []
                             }
@@ -294,7 +292,6 @@
           "margin_left": "0dp",
           "margin_top": "0dp",
           "background": "@background=white",
-          "background_optional": true,
           "childViews": [
             {
               "type": "Layout",
@@ -376,7 +373,6 @@
                               "margin_left": "0dp",
                               "layout_gravity": "center_vertical",
                               "text": "@model=@{series}@{versionNumber}",
-                              "text_upper": false,
                               "font_ref": "f1",
                               "childViews": []
                             }
