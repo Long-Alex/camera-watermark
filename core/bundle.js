@@ -95,6 +95,30 @@ var lgColorAlpha = function (ref) {
   var a = parseInt(h.slice(0, 2), 16) / 255;
   return isFinite(a) ? a : 1;
 };
+// ★ ARGB → CSS 颜色串 ★（canvas / CSS 只认 #RRGGBB 与 #RRGGBBAA，绝不认 Android 口径的 #AARRGGBB）
+//   本项目 preset 的颜色契约是 **#AARRGGBB（前两位 = alpha，Android/APK 原文）**，构建期也照这个校验
+//   （build.py 3.25）。但浏览器把 8 位十六进制按 **#RRGGBBAA** 解析 ⇒ 直接把 preset 的 #AARRGGBB 塞给
+//   ctx.fillStyle / SVG stop-color 会【把 alpha 当成红色通道、把蓝色当成 alpha】：
+//     实测 #FFE6A54F（本该是不透明金）被解析成 rgba(255,230,165,0.31) ⇒ 文字整片发灰发暗；
+//     #66E6A54F（40% 金）被解析成 rgba(102,230,84,0.31) ⇒ 偏绿。
+//   所以一切"要进 canvas/CSS/SVG 的颜色"都必须先过这个函数转成 rgba() 字面量；
+//   颜色自带的 alpha（如 f2 的 0x66、分隔线的 0xBF）由 lgColorAlpha 单独取出、作为 globalAlpha 参与合成，
+//   不能再塞进 fillStyle（否则会被浏览器按"未 premultiply 的 RGB"再混一次，见 40-draw 的注释）。
+//   "@color=X" 前缀（APK 用来显式指定调色板外的颜色）在此剥掉。
+var lgCssColor = function (ref) {
+  var s = String(ref == null ? '' : ref).trim();
+  if (s.charAt(0) === '@' && s.indexOf('=') > 0) s = s.slice(s.indexOf('=') + 1).trim();
+  if (!s) return '';
+  if (s === 'transparent') return s;
+  if (s.charAt(0) !== '#') return s;                          // 具名色/已是 CSS 形态：原样
+  var h = s.slice(1);
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  if (h.length === 6 && /^[0-9a-f]{6}$/i.test(h)) return s;   // #RRGGBB：CSS 与项目语义一致
+  if (h.length !== 8 || !/^[0-9a-f]{8}$/i.test(h)) return s;  // 其它形态：交给浏览器自己判
+  var a = parseInt(h.slice(0, 2), 16) / 255;
+  var r = parseInt(h.slice(2, 4), 16), g = parseInt(h.slice(4, 6), 16), b = parseInt(h.slice(6, 8), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + (Math.round(a * 1000) / 1000) + ')';
+};
 // 颜色明度（0=黑 1=白）：用来根据"选中样式的前景色"挑同侧的主题调色板。
 // 输入只可能是 #AARRGGBB 十六进制（preset 已规范化）或 transparent（见下）；
 // 不再认 "black" / "white" 这类具名色（那是在迁就两套写法混用的调色板）。
@@ -108,11 +132,30 @@ var lgLumOf = function (c) {
 };
 // 主题调色板：preset.wmRes.background = [{name, value:"@color=#AARRGGBB", foreground:[...]}]（APK 原文）
 // 主题不是 preset 里写死的 @background=white，而是【由选中的样式决定】：
-// 样式前景是深色（浅底：浅色/金色）→ 取前景数组 [0] 也是深色的那套（莱卡：white / light_blur）；
-// 样式前景是浅色（深底：深色/红色/91 的白色款）→ 取 [0] 也是浅色的那套（black / dark_blur / transparent_white）。
-// 两套调色板的 alpha 只在 [1] 上不同（0.30 vs 0.70），[2] 一律 50%，所以选错也只影响 [1] 的分隔线。
+//   ① 首选【按底色精确匹配】：样式的 background-color == 某个调色板的 value（同为 #AARRGGBB，
+//      忽略大小写/@color= 前缀）。莱卡 111 的"黑金"款就是这一类：底色 #FF141414 与 black 款相同，
+//      但前景是金色 ⇒ 只有精确匹配才能把它和黑色款区分开。
+//   ② 退路（老规则，保持零回归）：样式前景是深色（浅底）→ 取前景数组 [0] 也是深色的那套（white/light_blur）；
+//      样式前景是浅色（深底）→ 取 [0] 也是浅色的那套（black/dark_blur/transparent_white）。
+//      注意这条规则【天然分不开"同为深色底"的黑色款与黑金款】（两者调色板 [0] 都是 #FF141414，
+//      距离并列 ⇒ 取先出现的 black）——所以必须先走 ①。
+// 两套调色板的 alpha 只在 [1] 上不同（0.30 vs 0.70），[2] 一律 50%，所以选错只影响 [1] 与 [2]。
+var lgSwatchValue = function (v) {
+  // 调色板 value 的规范化：#AARRGGBB 大写无前缀，用于精确比较（"@color=#ff141414" → "FF141414"）
+  var s = String(v == null ? '' : v).trim();
+  if (s.charAt(0) === '@' && s.indexOf('=') > 0) s = s.slice(s.indexOf('=') + 1).trim();
+  var h = lgHex6(s);
+  return h ? h.toUpperCase() : null;
+};
 var lgPaletteFor = function (preset, style) {
   var list = ((preset || {}).wmRes || {}).background || [];
+  var wantColor = lgSwatchValue((style || {})['background-color']);
+  if (wantColor) {
+    for (var j = 0; j < list.length; j++) {
+      var fj = (list[j] || {}).foreground || [];
+      if (fj.length && lgSwatchValue(list[j].value) === wantColor) return list[j];
+    }
+  }
   var want = lgLumOf((style || {})['foreground-start'] || '#000000');
   var best = null, bd = Infinity;
   for (var i = 0; i < list.length; i++) {
@@ -586,10 +629,12 @@ var wmForeground = function (ctx, x, y, w, h) {
   var stop = parseFloat(APP('foreground-stop', '0%'));
   if (!isFinite(stop)) stop = 0;
   stop = Math.min(0.999, Math.max(0, stop / 100));
-  g.addColorStop(0, start);
-  if (stop > 0) g.addColorStop(stop, start);
-  g.addColorStop(stop, end);
-  if (stop < 1) g.addColorStop(1, end);
+  // ★ 颜色必须过 lgCssColor：preset 是 #AARRGGBB（Android 口径），canvas 只认 #RRGGBB/#RRGGBBAA。
+  //   颜色自带的 alpha 不在这里用（它由 lgTextAlpha/lgFillAlpha 取出来当 globalAlpha，见 05-layout）。
+  g.addColorStop(0, lgCssColor(start));
+  if (stop > 0) g.addColorStop(stop, lgCssColor(start));
+  g.addColorStop(stop, lgCssColor(end));
+  if (stop < 1) g.addColorStop(1, lgCssColor(end));
   return g;
 };
 
@@ -676,8 +721,7 @@ var wmDrawText = function (ctx, v) {
     var line = lines[i];
     var x = v.ax;
     var y = v.ay + lh * i + (lh - (asc + desc)) / 2 + asc;
-    ctx.fillStyle = wmForeground(ctx, v.ax, v.ay, v.w || 1, lh);
-    if (ls <= 0.001) { ctx.fillText(line, x, y); continue; }
+    ctx.fillStyle = wmForeground(ctx, v.ax, v.ay, v.w || 1, lh);    if (ls <= 0.001) { ctx.fillText(line, x, y); continue; }
     for (var c = 0; c < line.length; c++) {
       var ch = line.charAt(c);
       ctx.fillText(ch, x, y);
@@ -690,12 +734,15 @@ var wmDrawText = function (ctx, v) {
 // 分隔线等：节点自身带 @foreground 填充 ⇒ 用【样式前景色 + 调色板第 N 项的 alpha】铺（与参考实现
 // resolve_color 一致：参考件就是把 @foreground=N 解析成一个带 alpha 的纯色）。alpha 的推导与
 // "为什么不另乘 line-opacity" 见 10-style.js 的 lgFillAlpha 注释。
+// 两张来源都是"纯色 + 独立 alpha"：颜色串只留 RGB（lgCssColor 会保留调色板项自带的 alpha，
+// 这里再被下面的 globalAlpha 乘一次就是双层 alpha ⇒ 偏暗，所以 fillStyle 用 lgCssColor 的结果、
+// alpha 统一由 fill.alpha 给）。
 var wmDrawFill = function (ctx, v) {
   var fill = fillFor(v);
   if (!fill || !fill.foreground) return false;
   ctx.save();
   if (fill.alpha != null) ctx.globalAlpha = Math.max(0, Math.min(1, fill.alpha));
-  ctx.fillStyle = APP('foreground-start', '#000000');
+  ctx.fillStyle = lgCssColor(APP('foreground-start', '#000000'));
   ctx.fillRect(v.ax, v.ay, v.w, v.h);
   ctx.restore();
   return true;
@@ -706,7 +753,7 @@ var wmDrawBackdrop = function (ctx, W, H) {
   var bgc = String(APP('background-color', '')).trim();
   if (!bgc || bgc === 'transparent' || bgc === 'none') return;
   ctx.save();
-  ctx.fillStyle = bgc;
+  ctx.fillStyle = lgCssColor(bgc);
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
 };

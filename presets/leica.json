@@ -13,10 +13,11 @@
     "bandDpLocOff": 159.0
   },
   "type": {
-    "浅色": "light",
-    "深色": "dark",
-    "金色": "rose",
-    "红色": "red"
+    "晨曦白": "light",
+    "曜石黑": "dark",
+    "玫瑰金": "rose",
+    "霞光红": "red",
+    "琥珀金": "gold"
   },
   "styles": {
     "light": {
@@ -58,6 +59,15 @@
       "background-color": "#141414",
       "background-image": "red",
       "background-fit": "cover"
+    },
+    "gold": {
+      "foreground-start": "#FFE6A54F",
+      "foreground-end": "#FFE6A54F",
+      "foreground-stop": "30%",
+      "foreground-direction": "90deg",
+      "line-opacity": 0.6,
+      "background-color": "#141414",
+      "background-fit": ""
     }
   },
   "compose": {
@@ -549,6 +559,18 @@
           "#80FFFFFF",
           "#FFFFFFFF",
           "#BFFFFFFF"
+        ]
+      },
+      {
+        "name": "gold",
+        "icon": "@img=icon_background_gold.webp",
+        "value": "@color=#FF141414",
+        "foreground": [
+          "#FF141414",
+          "#FFE6A54F",
+          "#FFE6A54F",
+          "#FFE6A54F",
+          "#BFE6A54F"
         ]
       }
     ]
