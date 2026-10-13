@@ -25,20 +25,13 @@ var RTV     = { unit:@@UNIT@@, model:"@@MODEL@@", date:"@@TIME@@",
                 aperture:"@@APERTURE@@", speed:"@@SPEED@@", iso:"@@ISO@@",
                 lat:"@@LAT@@", lon:"@@LON@@" };
 var BAND_W  = @@BAND_W@@, BAND_H = @@BAND_H@@;  // 带子的实际像素尺寸（快捷指令按尺寸链算出）
-/* ★画布尺寸必须在这里按【整数像素】定 ★：
-   BAND_H 经常带小数（带高 = 短边/designShort × bandDp；1080×1440 的照片上 91 号恰好是 180.5），
-   而 canvas 的 width/height【内容属性】按"非负整数"规则解析 ⇒ height="180.5" 会被截成 180，
-   于是 (a) 页面自己声明的 BAND_H 与真实画布不等 ⇒ 40-draw 的尺寸自检会误报，
-   (b) 下游 resizeImageByLongestEdge(…, photoWidth) 拿到的层高比尺寸链少不到 1px。
-   取整口径用【向下取整】，和两处既有口径严格一致，保证视觉零变化：
-     · 历史的 canvas 内容属性解析（height="180.5" → 180）就是这个行为；
-     · 校验脚本 wm_plan.plan 里是 int(renderHeight)（local_verify 的 band_h 与 check_canvas_out 都用它）。 */
+/* 画布尺寸按【整数像素】定：BAND_H 常带小数（91 号在 1080×1440 上恰好是 180.5），而 canvas 的
+   width/height【属性】按"非负整数"解析会把它截断 ⇒ 页面声明的 BAND_H 与真实画布不等，
+   40-draw 的尺寸自检会误报、遥测 band 与校验脚本的口径也不一致。
+   用向下取整：= 历史的内容属性行为 = wm_plan 的 int(renderHeight)，视觉零变化。 */
 var BAND_PX_W = Math.max(1, Math.floor(BAND_W));
 var BAND_PX_H = Math.max(1, Math.floor(BAND_H));
-(function () {
-  var c = document.getElementById('wm-canvas');
-  if (c) { c.width = BAND_PX_W; c.height = BAND_PX_H; }
-})();
+(function () { var c = document.getElementById('wm-canvas'); if (c) { c.width = BAND_PX_W; c.height = BAND_PX_H; } })();
 var OVERRIDE= @@APPEARANCE_JSON@@;   // 选中样式的 JSON 原文（键同 preset 的 styles）
 var BG_URI   = "@@BACKGROUND_IMAGE@@";  // 背景图 data URI（有图才有）
 @@CORE_JS@@

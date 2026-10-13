@@ -742,8 +742,7 @@ var wmPublish = function (canvas) {
   // 尺寸自检（硬要求）：detect.images 提取的是 <img> 的自然尺寸，下游 resizeImageByLongestEdge(…, photoWidth)
   // 依赖它恰好等于 BAND_W×BAND_H。若不等就写进 #wm-error —— 本地校验与真机都会立刻看到，
   // 避免"校验全绿、真机尺寸错"这种沉默失败。
-  // 比较口径 = 整数像素、向下取整（BAND_H 常带小数，画布只能是整数；口径说明见 index.html.txt）。
-  // 直接用原始 BAND_H 比会把 180.5 vs 180 报成"尺寸错"，那是误报（真机上每次都会亮红字）。
+  // 口径 = 整数像素、向下取整（见 index.html.txt）：用原始 BAND_H 比会把 180.5 vs 180 误报成尺寸错。
   var expW = (typeof BAND_PX_W === 'number') ? BAND_PX_W
            : ((typeof BAND_W === 'number' && isFinite(BAND_W)) ? Math.max(1, Math.floor(BAND_W)) : 0);
   var expH = (typeof BAND_PX_H === 'number') ? BAND_PX_H
@@ -891,10 +890,8 @@ var wmPublish = function (canvas) {
         unit: CONFIG.unit, boxes: boxes, texts: texts, fontsize: fontsize,
         logoStrokes: strokes, logoShapes: shapes,
         fitted: !!isFitted, variant: pickName,
-        // 带的尺寸【统一用整数像素、向下取整的口径】：画布只能是整数（BAND_H 常带小数，
-        // 见 index.html.txt 的说明），而校验脚本的 band_h 来自 wm_plan 的 int(renderHeight)。
-        // 两边必须同口径，否则真机上"页面 BAND 1080x180.5 vs 成品 1080x180"会被判成尺寸错
-        // （本地校验因为注入的就是整数，看不出来）。
+        // 带尺寸用整数像素、向下取整（口径见 index.html.txt）：校验脚本的 band_h 来自 wm_plan 的
+        // int(renderHeight)，两边必须一致，否则真机"页面 BAND 180.5 vs 成品 180"会被判成尺寸错。
         band: Math.max(1, Math.floor(BAND_W)) + 'x' + Math.max(1, Math.floor(BAND_H)),
         root: { clientWidth: Math.floor(BAND_W), scrollWidth: Math.floor(BAND_W), h: Math.floor(BAND_H) }
       };
