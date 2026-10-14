@@ -209,6 +209,10 @@ var lgTextOf = function (node) {
     return fmtTime(CONFIG.date, TIME_FMT[key] || 'yyyy.MM.dd HH:mm');
   }
   if (kind === 'exif') {
+    // ★自定义文本优先★：用户词典里填了 exifText 且该款式声明支持 ⇒ 整条拍摄参数用自定义文本
+    //（leica91 把拍摄参数拆成两行 ⇒ userConfig.exifText=false，这里取不到自定义文本，仍走 实际值>兜底值）
+    var et = (typeof userExifText === 'function') ? userExifText() : '';
+    if (et) return et;
     return expand(tpl.split(';')[0]);          // expand 内含 E0 语义：四项缺一即整行为空
   }
   if (kind === 'location') {
@@ -272,11 +276,24 @@ var lgTextSize = function (v, sizeScale) {
   v._t = { font: f, sizePx: sizePx, lh: f['line-height'] * CONFIG.unit };
   var t = lgTextOf(v);
   v._text = t;
+  if (v.optional && !t) {                       // 可选块（时间/定位）内容为空 ⇒ 整块隐藏，不留空行
+    v.enabled = false; v.w = v.h = 0;
+    return;
+  }
   var lines = String(t).split('\n');
   var w = 0;
   for (var i = 0; i < lines.length; i++) w = Math.max(w, lgTextWidth(lines[i], f, sizePx));
   v.w = (f._indent ? 0 : 0) + w;
-  v.h = (f['line-height'] * CONFIG.unit) * lines.length;   // 空文本仍占一行高
+  v.h = (f['line-height'] * CONFIG.unit) * lines.length;   // 非 optional 的空文本仍占一行高（历史口径）
+};
+
+// 可选容器（如 leica91 的 time_layout）：子树里一个非空文本都没有 ⇒ 整块隐藏
+var lgAnyText = function (v) {
+  if (v.type !== 'TextView') {
+    for (var i = 0; i < (v.children || []).length; i++) if (lgAnyText(v.children[i])) return true;
+    return false;
+  }
+  return !!v._text;
 };
 
 var _lgCtx = null;
@@ -302,6 +319,10 @@ var lgMeasure = function (v, pw, ph, sizeScale) {
     var pcw = (v.lw.v !== LG_WRAP && v.lw.v !== LG_MATCH) ? lgPx(v.lw, s, pw) : pw;
     var pch = (v.lh.v !== LG_WRAP && v.lh.v !== LG_MATCH) ? lgPx(v.lh, s, ph) : ph;
     for (var i = 0; i < v.children.length; i++) lgMeasure(v.children[i], pcw, pch, sizeScale);
+    if (v.optional && !lgAnyText(v)) {             // 可选容器没有可显示文本（如关掉日期）⇒ 整块隐藏
+      v.enabled = false; v.w = v.h = 0;
+      return;
+    }
     var w = 0, h = 0;
     for (var j = 0; j < v.children.length; j++) {
       var c = v.children[j];
@@ -521,10 +542,55 @@ var TIME_FMT = {                       // @wm_time_* → SimpleDateFormat 原文
 };
 var WEEK = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 var pad2 = function (x) { return (x < 10 ? '0' : '') + x; };
+
+// ---------------------------------------------------------------- 用户词典（快捷指令里那个"用户配置"词典）
+// ★取值优先级：【自定义文本（用户填了 + 该款式支持）】>【照片里实际读到的值】>【词典里的兜底值】★
+// 兜底值统一来自快捷指令的用户词典（不再写在各 preset 里）；preset 只用 userConfig 声明"支持哪些开关"：
+//   userConfig.date / .exifText / .locationText（true = 这款水印支持；不支持当作用户没设，保持原行为）
+var userCfg = function () {
+  // 优先读页面里的 <script id="wm-user" type="application/json">（快捷指令用 replaceText 注入）。
+  // 若快捷指令是旧版、没替换这个占位符 ⇒ JSON.parse 抛错 ⇒ 退回 {}（只是没有兜底值/开关，不会整页语法错）。
+  var el = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('wm-user') : null;
+  if (el) {
+    try {
+      var o = JSON.parse(el.textContent || '{}');
+      if (o && typeof o === 'object') return o;
+    } catch (e) { /* 旧版快捷指令：忽略 */ }
+  }
+  return (typeof USER !== 'undefined' && USER && typeof USER === 'object') ? USER : {};
+};
+var userCap = function (k) { return (CONFIG.userConfig || {})[k] === true; };
+var userStr = function (key) {
+  var v = userCfg()[key];
+  if (typeof v === 'string') return v.trim();
+  return (typeof v === 'number') ? String(v) : '';
+};
+var userFbVal = function (k) {
+  var f = userCfg().fallback;
+  if (!f || typeof f !== 'object') return undefined;
+  var v = f[k];
+  return (v === undefined || v === null || v === '') ? undefined : v;
+};
+var userShowDate = function () {          // 日期开关（款式不支持就不生效）
+  return userCap('date') ? (userCfg().showDate !== false) : true;
+};
+var userExifText = function () {          // 自定义拍摄参数文本（款式支持才生效）
+  return userCap('exifText') ? userStr('exifText') : '';
+};
+var userLocText = function () {           // 自定义经纬度文本（款式支持才生效）
+  return userCap('locationText') ? userStr('locationText') : '';
+};
+// 兜底值：用户词典优先（preset 里已不再写 fallback，这句是给旧数据留的最后兼容）
+var fbVal = function (k) {
+  var v = userFbVal(k);
+  return (v !== undefined) ? v : (CONFIG.fallback || {})[k];
+};
+
 var fmtTime = function (iso, pattern) {
+  if (!userShowDate()) return '';          // 用户关了日期 ⇒ 时间节点整块隐藏（05-layout 的 optional 塌陷）
   var d = iso ? new Date(iso) : null;
-  if (!d || isNaN(d.getTime())) {          // 时间缺失/无效 ⇒ fallback.date（"now" = 渲染时刻）
-    var fb = (CONFIG.fallback || {}).date;
+  if (!d || isNaN(d.getTime())) {          // 时间缺失/无效 ⇒ 兜底 date（"now" = 渲染时刻）
+    var fb = fbVal('date');
     d = (fb && fb !== 'now') ? new Date(fb) : new Date();
   }
   if (isNaN(d.getTime())) return '';
@@ -542,10 +608,20 @@ var dms = function (v, pos, neg) {     // Ci.a.d(): 度分秒整数截断 + 半�
   return d + '°' + m + "'" + pad2(s) + '"' + hemi;
 };
 var hasGps = function () {
-  return CONFIG.lat != null && CONFIG.lat !== '' && CONFIG.lon != null && CONFIG.lon !== '';
+  // "有定位" = 照片有经纬度、或用户指定了自定义文本/兜底经纬度（三者在快捷指令侧同口径判定，决定版式与带高）
+  if (userLocText()) return true;
+  if (CONFIG.lat != null && CONFIG.lat !== '' && CONFIG.lon != null && CONFIG.lon !== '') return true;
+  return userFbVal('latitude') !== undefined && userFbVal('longitude') !== undefined;
 };
 var latlng = function () {             // 单行，纬经之间【两个空格】（模板不拆行）
-  return hasGps() ? (dms(Number(CONFIG.lat), 'N', 'S') + '  ' + dms(Number(CONFIG.lon), 'E', 'W')) : '';
+  var t = userLocText();               // 1) 自定义文本（如"九州歌盛世"）
+  if (t) return t;
+  var lat = CONFIG.lat, lon = CONFIG.lon;
+  if (lat == null || lat === '' || lon == null || lon === '') {   // 2) 照片实际值 → 3) 词典兜底值
+    lat = userFbVal('latitude'); lon = userFbVal('longitude');
+  }
+  if (lat == null || lat === '' || lon == null || lon === '') return '';
+  return dms(Number(lat), 'N', 'S') + '  ' + dms(Number(lon), 'E', 'W');
 };
 var numValue = function (x) {
   if (typeof x === 'string' && x.indexOf('/') >= 0) {
@@ -565,11 +641,11 @@ var fmtSpeed = function (x) {          // <1s ⇒ 1/N；≥1s ⇒ %g（复刻 fm
   if (x >= 1) return String(parseFloat(x.toPrecision(6)));
   return '1/' + Math.round(1 / x);
 };
-// 取值链：运行时值 → preset.fallback 兜底 → NaN/空（截图、无 EXIF、无机型都不会空/出错）
+// 取值链：运行时值 → 用户词典兜底值 → NaN/空（截图、无 EXIF、无机型都不会空/出错）
 var pickNum = function (k) {
   var n = numValue(CONFIG[k]);
   if (isFinite(n) && n > 0) return n;
-  var f = numValue((CONFIG.fallback || {})[k]);
+  var f = numValue(fbVal(k));
   return (isFinite(f) && f > 0) ? f : NaN;
 };
 
@@ -586,8 +662,8 @@ var expand = function (tpl) {
                     isFinite(pickNum('speed')) && isFinite(pickNum('iso')))) return '';
   return tpl.replace(/@\{(\w+)\}/g, function (_, k) {
     switch (k) {
-      case 'model':      return CONFIG.model || (CONFIG.fallback || {}).model || '';
-      case 'series':     return CONFIG.model || (CONFIG.fallback || {}).model || '';   // APK: @{series} = 机型串
+      case 'model':      return CONFIG.model || fbVal('model') || '';
+      case 'series':     return CONFIG.model || fbVal('model') || '';                  // APK: @{series} = 机型串
       case 'versionNumber': return '';                                                  // APK 里硬编码为空
       case 'versionName':return CONFIG.versionName || '';
       case 'focal':      return fmtFixed(pickNum('focal'), 0);
