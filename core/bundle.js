@@ -591,15 +591,14 @@ var userFbVal = function (k) {
 var userShowDate = function () {          // showDate 开关（款式不支持就不生效）
   return userCap('date') ? (userCfg().showDate !== false) : true;
 };
-var userExifText = function () {          // showexifText 开关 + exif.text（款式支持才生效）
+// 自定义文本：★没有开关★ —— 有值就用（外加款式支持），空值自然不生效
+var userExifText = function () {
   if (!userCap('exifText')) return '';
-  if (!userBool('showexifText')) return '';
-  return userGroupStr('exif', 'text');
+  return userStr('exifText');
 };
-var userLocText = function () {           // showlocationText 开关 + location.text（款式支持才生效）
+var userLocText = function () {
   if (!userCap('locationText')) return '';
-  if (!userBool('showlocationText')) return '';
-  return userGroupStr('location', 'text');
+  return userStr('locationText');
 };
 // 兜底值：用户词典优先（preset 里已不再写 fallback，这句是给旧数据留的最后兼容）
 var fbVal = function (k) {
