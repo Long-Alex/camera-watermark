@@ -565,20 +565,41 @@ var userStr = function (key) {
   if (typeof v === 'string') return v.trim();
   return (typeof v === 'number') ? String(v) : '';
 };
-var userFbVal = function (k) {
-  var f = userCfg().fallback;
-  if (!f || typeof f !== 'object') return undefined;
-  var v = f[k];
+var userBool = function (key) {           // 词典里的开关（Shortcuts 布尔经 JSON 过来就是 true/false）
+  var v = userCfg()[key];
+  return (v === true || v === 1 || v === '1' || v === 'true');
+};
+var userGroup = function (group, k) {     // 词典里的分组（「拍摄参数」「经纬度」）
+  var g = userCfg()[group];
+  if (!g || typeof g !== 'object') return undefined;
+  var v = g[k];
   return (v === undefined || v === null || v === '') ? undefined : v;
 };
-var userShowDate = function () {          // 日期开关（款式不支持就不生效）
+var userGroupStr = function (group, k) {  // 分组里的文本项（如 exif.text / location.text）
+  var v = userGroup(group, k);
+  return (typeof v === 'string') ? v.trim() : (typeof v === 'number' ? String(v) : '');
+};
+// 兜底值：model / date 在顶层；focal·aperture·speed·iso 在 exif 分组；latitude·longitude 在 location 分组
+var userFbVal = function (k) {
+  if (k === 'model' || k === 'date') {
+    var v = userCfg()[k];
+    return (v === undefined || v === null || v === '') ? undefined : v;
+  }
+  if (k === 'latitude' || k === 'longitude') return userGroup('location', k);
+  return userGroup('exif', k);
+};
+var userShowDate = function () {          // showDate 开关（款式不支持就不生效）
   return userCap('date') ? (userCfg().showDate !== false) : true;
 };
-var userExifText = function () {          // 自定义拍摄参数文本（款式支持才生效）
-  return userCap('exifText') ? userStr('exifText') : '';
+var userExifText = function () {          // showexifText 开关 + exif.text（款式支持才生效）
+  if (!userCap('exifText')) return '';
+  if (!userBool('showexifText')) return '';
+  return userGroupStr('exif', 'text');
 };
-var userLocText = function () {           // 自定义经纬度文本（款式支持才生效）
-  return userCap('locationText') ? userStr('locationText') : '';
+var userLocText = function () {           // showlocationText 开关 + location.text（款式支持才生效）
+  if (!userCap('locationText')) return '';
+  if (!userBool('showlocationText')) return '';
+  return userGroupStr('location', 'text');
 };
 // 兜底值：用户词典优先（preset 里已不再写 fallback，这句是给旧数据留的最后兼容）
 var fbVal = function (k) {
@@ -586,13 +607,23 @@ var fbVal = function (k) {
   return (v !== undefined) ? v : (CONFIG.fallback || {})[k];
 };
 
+// 兜底日期：支持 ①"now"（= 渲染时刻）②ISO8601（2026-10-14T22:41:22+08:00）
+//            ③任何 new Date() 能解析的格式；解析不了（含 "2026年10月14日 下午10:39" 这种本地化串、
+//            以及 "{CurrentDate}" 这类变量占位符）⇒ 一律退回渲染时刻，绝不报错/出空。
+var fbDate = function () {
+  var fb = fbVal('date');
+  if (fb === undefined || fb === null) return null;
+  var s = String(fb).trim();
+  if (!s || s.toLowerCase() === 'now') return null;
+  if (s.charAt(0) === '{' || s.charAt(0) === '@') return null;   // 变量占位符
+  var d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+};
 var fmtTime = function (iso, pattern) {
   if (!userShowDate()) return '';          // 用户关了日期 ⇒ 时间节点整块隐藏（05-layout 的 optional 塌陷）
   var d = iso ? new Date(iso) : null;
-  if (!d || isNaN(d.getTime())) {          // 时间缺失/无效 ⇒ 兜底 date（"now" = 渲染时刻）
-    var fb = fbVal('date');
-    d = (fb && fb !== 'now') ? new Date(fb) : new Date();
-  }
+  if (!d || isNaN(d.getTime())) d = fbDate();     // 照片里没日期 ⇒ 读兜底日期
+  if (!d || isNaN(d.getTime())) d = new Date();   // 兜底也没有/解析不了 ⇒ 渲染时刻
   if (isNaN(d.getTime())) return '';
   return pattern.replace(/yyyy/g, d.getFullYear())
                 .replace(/EEEE/g, WEEK[d.getDay()])
