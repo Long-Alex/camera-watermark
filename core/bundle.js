@@ -1,22 +1,17 @@
-// 00-util: 基础工具（单位换算 / DOM / 取值）
+// 00-util: 基础工具（外观取值）
 // 单位链：unit = min(照片宽,照片高) / designShort（快捷指令算好写进 RUNTIME.unit；不除 dpr，踩坑 §9.1b）
 // WebView 里 1 CSS px = 1 pt ⇒ dp × unit = px
-var DP = function (v) {                       // dp 数值 → px；带单位字符串（"100%" / "0.083em"）原样
-  if (typeof v === 'number') return (v * CONFIG.unit) + 'px';
-  return v;
-};
-var EL = function (tag, css, text) {
-  var e = document.createElement(tag);
-  if (css) for (var k in css) e.style[k] = css[k];
-  if (text != null) e.textContent = text;
-  return e;
-};
-var PAD = function (p, side) { return p && p[side] != null ? p[side] : 0; };
-var FONT = function (n) { return n.font ? ((CONFIG.fonts || {})[n.font] || null) : null; };
-// 外观取值：键 = CSS 属性名（= 该 preset 的 styles 那套），运行时已被 OVERRIDE（选中样式）改写（§4.5）
-var APP = function (k, dflt) {
+//
+// ★本文件只留"引擎真的会调用"的东西★：DOM/CSS 时代的 DP / EL / PAD / FONT 四个辅助已删 ——
+//   页面现在是纯 canvas 直绘（坐标由 05-layout 算好、40-draw 直接画），它们一个调用点都没有；
+//   其中 FONT(n) 读的是 `n.font`（旧节点 schema 的字段名，规范里是 `font_ref`），属于"两套 schema"的残留。
+//
+// 外观取值：键 = CSS 属性名（= 该 preset 的 styles 那套，9 个键必须齐全，build.py 逐键校验），
+// 运行时已被 OVERRIDE（选中样式）改写（§4.5）。★不再给任何"缺键默认值"★ ——
+// 默认值会让 preset 少写一个键也照常出图，把"不规范"藏到运行时；规格由构建期兜。
+var APP = function (k) {
   var a = CONFIG.appearance || {};
-  return (a[k] != null && a[k] !== '') ? a[k] : dflt;
+  return a[k];
 };
 
 // 05-layout: 通用布局引擎 —— 1:1 对应小米 APK 水印模板的布局模型（p880yu 规则）
@@ -33,9 +28,12 @@ var LG_DIM_RE = /^(-?\d+\.?\d*)(dp|px|sp)?$/;
 var LG_W_RE = /^(\d+\.?\d*)%?[wW]$/;
 var LG_H_RE = /^(\d+\.?\d*)%?[hH]$/;
 
-var lgDim = function (spec, dflt) {
-  var d = (dflt === undefined) ? LG_WRAP : dflt;
-  if (spec == null || spec === '') return { v: d, u: '' };
+var lgDim = function (spec) {
+  // 节点长度一律是【dim 字符串】（"64dp" / "wrap_content" / "match_parent" / "50%w" / "2px"）：
+  // 裸数字是另一种写法（同一个"长度"两种表达），build.py 的节点 schema 校验会直接拒掉。
+  // 这里对缺失/空串返回 wrap_content —— 不是"给 preset 兜底"，而是解析器的全域定义：
+  // 键缺失在构建期已经报错，运行期不猜数值（也不抛错，避免真机整页空白）。
+  if (spec == null || spec === '') return { v: LG_WRAP, u: '' };
   var s = String(spec).trim();
   if (s === 'wrap_content' || s === 'auto') return { v: LG_WRAP, u: '' };
   if (s === 'match_parent' || s === '100%') return { v: LG_MATCH, u: '' };
@@ -44,8 +42,7 @@ var lgDim = function (spec, dflt) {
   var mw = LG_W_RE.exec(s), mh = LG_H_RE.exec(s);
   if (mw) return { v: parseFloat(mw[1]), u: '%w' };
   if (mh) return { v: parseFloat(mh[1]), u: '%h' };
-  var n = parseFloat(s);
-  return isFinite(n) ? { v: n, u: 'dp' } : { v: LG_WRAP, u: '' };
+  return { v: LG_WRAP, u: '' };
 };
 // dp → px（scale = unit）；px 原样；%w/%h 相对父约束；wrap/match 由布局期决定（返回 null）
 var lgPx = function (dim, scale, parent) {
@@ -161,7 +158,10 @@ var lgTextOf = function (node) {
   }
   if (kind === 'time') {
     var key = tpl.split(';')[0].trim().replace(/^@/, '');
-    return fmtTime(CONFIG.date, TIME_FMT[key] || 'yyyy.MM.dd HH:mm');
+    // ★不再"猜一个默认时间格式"★：未知 token = 空串（build.py 已把 token 值域钉死在 30-format.js
+    //   的 TIME_FMT 上，正常路径取不到空；这里只是拒绝替 preset 编造格式）
+    var pat = TIME_FMT[key];
+    return pat ? fmtTime(CONFIG.date, pat) : '';
   }
   if (kind === 'exif') {
     // ★自定义文本优先★：用户词典里填了 exifText 且该款式声明支持 ⇒ 整条拍摄参数用自定义文本
@@ -181,33 +181,40 @@ var lgTextOf = function (node) {
 
 // ---------------------------------------------------------------- 视图树（APK childViews → view）
 // pkey = 父节点路径（"#索引"逐级拼接）⇒ 每个 view 有一个【跨重排稳定】的 key。见 lgSizeImage 的让位因子表。
+// ★节点 schema 只有一套★（每份 preset 里同一类型的节点键集合完全一致，build.py 逐节点校验）：
+//   Layout   : type id orientation layout_width layout_height gravity margin_left margin_top
+//              padding_left padding_top padding_right padding_bottom background optional childViews
+//   TextView : type id gravity margin_left margin_top optional text font_ref childViews
+//   ImageView: type id gravity margin_left margin_top display_width display_height
+//              max_width max_width_ratio path childViews
+//   对齐键统一叫 `gravity`（不再按类型分 gravity / layout_gravity 两个名字）；
+//   图片来源统一由 `path` 声明（"photo" = 照片层、"logo" = 品牌标），不再靠 id 前缀特判。
 var lgBuild = function (nodes, pkey) {
   var out = [];
   for (var i = 0; i < (nodes || []).length; i++) {
     var n = nodes[i], v = {
       id: n.id || '', type: n.type || '', orientation: n.orientation || 'horizontal',
-      gravity: 0, lw: lgDim(n.layout_width !== undefined ? n.layout_width : 'wrap_content'),
-      lh: lgDim(n.layout_height !== undefined ? n.layout_height : 'wrap_content'),
+      gravity: 0, lw: lgDim(n.layout_width), lh: lgDim(n.layout_height),
       ml: lgNum(n.margin_left), mt: lgNum(n.margin_top),
       pl: lgNum(n.padding_left), pt: lgNum(n.padding_top),
       pr: lgNum(n.padding_right), pb: lgNum(n.padding_bottom),
       background: n.background || null, children: [], text: '', font: null,
-      optional: !!n.optional, dw: lgDim(n.display_width, 0), dh: lgDim(n.display_height, 0),
-      maxW: (typeof n.max_width === 'number') ? n.max_width : null,
-      maxWR: (typeof n.max_width_ratio === 'number') ? n.max_width_ratio : null,
-      img: null, enabled: true, w: 0, h: 0, x: 0, y: 0, _t: null,
+      optional: !!n.optional, dw: lgDim(n.display_width), dh: lgDim(n.display_height),
+      maxW: lgNum(n.max_width),                        // 绝对宽度上限（dp；0dp = 不设该上限）
+      maxWR: (n.max_width_ratio == null || n.max_width_ratio === '') ? 0 : parseFloat(n.max_width_ratio),
+      path: '', img: null, enabled: true, w: 0, h: 0, x: 0, y: 0, _t: null,
       _key: (pkey || '') + '#' + i
     };
     if (v.type === 'Layout') {
       v.gravity = lgGrav(n.gravity);
       v.children = lgBuild(n.childViews, v._key);
     } else if (v.type === 'TextView') {
-      v.gravity = lgGrav(n.layout_gravity);
+      v.gravity = lgGrav(n.gravity);
       v.text = n.text || '';
       v.font = n.font_ref || null;
     } else if (v.type === 'ImageView') {
-      v.gravity = lgGrav(n.layout_gravity);
-      v.src = n.path || '';
+      v.gravity = lgGrav(n.gravity);
+      v.path = n.path || '';
     }
     out.push(v);
   }
@@ -233,9 +240,10 @@ var lgSizeImage = function (v, aspect) {
   else if (dw > 0) { v.w = dw; v.h = aspect > 0 ? dw / aspect : 0; }
   else { v.w = v.img.w * s; v.h = v.img.h * s; }
   // ★宽度闸门 = min(max_width_ratio × display_height, max_width)★
-  //   两个分量都是【preset 节点上可逐款声明的字段】，引擎里不留任何"拍脑袋常量"：
-  //     · max_width_ratio：宽度 ÷ 显示高度 的比例闸门（0 = 不限该闸门）；缺省 2（= 历史默认口径）
-  //     · max_width：绝对硬上限（dp；0/缺省 = 不设该上限）
+  //   两个分量都是【每个 ImageView 节点上必写的规范字段】（build.py 校验其存在与值域），
+  //   引擎里不留任何"缺省比例/缺省上限"的兜底：
+  //     · max_width：绝对硬上限（dp；"0dp" = 不设该上限 —— 0 在这里是"闸门关闭"的显式声明）
+  //     · max_width_ratio：宽度 ÷ 显示高度的比例闸门（无量纲数字；0 = 不限该闸门）
   //   为什么必须有比例闸门（用户 2026-10-15 实测否决"只认 max_width"）：长字标一旦无人争宽
   //   （竖排/行内余量很大）就会膨胀 —— shoton 78dp 的 SONY 443×78，比 380dp 宽的
   //   "Shot on iPhone 15 Pro" 文案还宽。display_height 只是"盒子高"，管不住宽度。
@@ -243,8 +251,8 @@ var lgSizeImage = function (v, aspect) {
   //   素材换成 1.26:1 的"H"标（4384774）后只留下副作用 —— Canon 4.75 → 高度只达成 42%、
   //   SONY 5.68 → 35%。所以：闸门比例进 preset（逐款可改），行内放不下再交给 90-boot 的
   //   lgFitImages【让图片让位】（先缩自适应宽度的图片，文字保持设计字号）。
-  var capDp = (typeof v.maxW === 'number' && v.maxW > 0) ? v.maxW : 0;                 // 绝对硬上限
-  var ratio = (typeof v.maxWR === 'number' && v.maxWR >= 0) ? v.maxWR : 2;             // 比例闸门（默认 2）
+  var capDp = (v.maxW > 0) ? v.maxW : 0;                                               // 绝对硬上限
+  var ratio = (v.maxWR > 0) ? v.maxWR : 0;                                             // 比例闸门
   var hDp = (v.dh && v.dh.v !== LG_WRAP && v.dh.v !== LG_MATCH) ? v.dh.v : 0;          // 盒子高（dp）
   if (ratio > 0 && hDp > 0) {
     var rDp = hDp * ratio;
@@ -270,7 +278,7 @@ var lgTextSize = function (v, sizeScale) {
   var lines = String(t).split('\n');
   var w = 0;
   for (var i = 0; i < lines.length; i++) w = Math.max(w, lgTextWidth(lines[i], f, sizePx));
-  v.w = (f._indent ? 0 : 0) + w;
+  v.w = w;
   v.h = (f['line-height'] * CONFIG.unit) * lines.length;   // 非 optional 的空文本仍占一行高（历史口径）
 };
 
@@ -376,38 +384,15 @@ var lgFlatten = function (v, out, ox, oy) {
   return out;
 };
 
-// 10-style: view 树 → 绝对定位的 CSS（坐标由 05-layout 的 measure/place 算好）
-// 小米引擎用绝对坐标画布绘制（p880yu），这里同构：每个节点 = 一个绝对定位的盒子，
-// 位置/尺寸 = 布局引擎算出的 px（dp × unit），不再依赖 flex 猜尺寸。
-var ABS_BOX = function (v) {
-  return {
-    position: 'absolute',
-    left: v.ax + 'px', top: v.ay + 'px',
-    width: v.w + 'px', height: v.h + 'px',
-    boxSizing: 'border-box'
-  };
-};
-
-// 文本：字体度量仍按设计字体（MiSans：ascent 1.044em / descent 0.282em，行高 = 1.326×size）
-var textCss = function (v) {
-  var css = ABS_BOX(v), f = v._t.font;
-  css.fontFamily = f['font-family'];
-  css.fontSize = v._t.sizePx + 'px';
-  css.lineHeight = v._t.lh + 'px';
-  css.fontWeight = f['font-weight'];
-  css.whiteSpace = 'pre';                          // EXIF/经度双空格 + 绝不换行
-  css.overflow = 'visible';
-  if (f['letter-spacing']) css.letterSpacing = f['letter-spacing'];
-  if (f.opacity != null) css.opacity = f.opacity;
-  if (f.shadow) css.textShadow = f.shadow;
-  var align = f.textAlign || (v.gravity & 8 ? 'right' : (v.gravity & 32 ? 'center' : 'left'));
-  css.textAlign = align;
-  return css;
-};
-
+// 10-style: 节点自身的填充（分隔线 @foreground=N）
+// 坐标由 05-layout 的 measure/place 算好、绘制由 40-draw 直接画进 #wm-canvas；
+// ★DOM/CSS 时代的 ABS_BOX / textCss 已删★（纯 canvas 直绘后它们没有任何调用点，
+//   而且 textCss 读的 f.opacity / f.textAlign / v.gravity 位判定是"第二套样式来源"）。
+//
 // 节点自身的填充：
 //   "@foreground=N" = 前景色条（分隔线）—— 颜色取样式前景，透明度取【该样式声明的第 N 个槽位】
 //   "@background=name" = 主题底色 —— 本项目由 styles 的 background-color 统一决定，节点不再刷一层
+//     ⇒ 构建期把 "@background=…" 这种死值统一清成 ""（值域见 build.py 的节点 schema 校验）
 // ★ 不再另乘任何透明度：@foreground=N 的 alpha 已经由 styles.foreground-slots 给全，
 //   颜色自带的 alpha 也由 wmDrawFill 单独取出（见 40-draw 注释），两个都乘就会重复相乘
 //   —— 参考件 leica_1 的分隔线实测是 30% 黑，再乘一次会掉到 9%（见 _local 对照）。
@@ -418,7 +403,7 @@ var lgFillAlpha = function (n, style) {
   var idx = parseInt(n, 10);
   if (!isFinite(idx) || idx < 0) idx = 0;
   if (idx === 1) {
-    var lo = parseFloat(APP('line-opacity', NaN));
+    var lo = parseFloat(APP('line-opacity'));
     if (isFinite(lo)) return Math.max(0, Math.min(1, lo));
   }
   return lgForegroundAlpha(idx, style);
@@ -475,11 +460,16 @@ var paintGradient = function (svg) {
   }
 };
 
-// 素材挂载：品牌标来自页面里的 #wm-logo-src（快捷指令注入的 SVG）；缺失 ⇒ 视图不渲染（enabled=false）
+// 素材挂载：图片来源只有一套判据 —— 节点的 `path`（构建期校验值域只允许 "photo" / "logo"）：
+//   · "photo" = 照片层（快捷指令在外层合成，引擎不画）
+//   · "logo"  = 品牌标（来自页面里的 #wm-logo-src，由快捷指令注入 SVG）
+// ★以前是两套判据★：照片层靠 id 前缀 "src_image*" 特判（名字特判），品牌标靠 path 里的
+//   "logo" 子串，而 path 的值被赋给 v.src 之后【从不读取】。现在 id 只当身份（遥测/调试），
+//   `path` 是唯一的来源声明。
 var lgAssets = function (root) {
   var walk = function (v) {
     if (v.type === 'ImageView') {
-      if (String(v.id).indexOf('src_image') === 0) {         // 照片层：由快捷指令在外层合成，引擎不画
+      if (v.path === 'photo') {
         v.enabled = false; v.img = null;
       } else {
         var svg = (document.getElementById('wm-logo-src') || {}).innerHTML || '';
@@ -591,11 +581,8 @@ var userLocText = function () {
   if (!userCap('locationText')) return '';
   return userStr('locationText');
 };
-// 兜底值：用户词典优先（preset 里已不再写 fallback，这句是给旧数据留的最后兼容）
-var fbVal = function (k) {
-  var v = userFbVal(k);
-  return (v !== undefined) ? v : (CONFIG.fallback || {})[k];
-};
+// 兜底值：只有快捷指令的用户词典一处（preset 里不再有 fallback —— build.py 直接禁止该键）
+var fbVal = function (k) { return userFbVal(k); };
 
 // 兜底日期：支持 ①"now"（= 渲染时刻）②ISO8601（2026-10-14T22:41:22+08:00）
 //            ③任何 new Date() 能解析的格式；解析不了（含 "2026年10月14日 下午10:39" 这种本地化串、
@@ -676,7 +663,9 @@ var expand = function (tpl) {
   if (tpl == null) return '';
   // 就地替换（不早返回）：模板里可以同时有时间和别的 token；早返回会把其余内容整行吞掉
   tpl = tpl.replace(/@wm_time_(\w+)/g, function (_, k) {
-    return fmtTime(CONFIG.date, TIME_FMT['wm_time_' + k] || k);
+    // 未知 token 不猜格式（原来是 `|| 'yyyy.MM.dd HH:mm'`）：build.py 已把 token 值域钉死在 TIME_FMT
+    var pat = TIME_FMT['wm_time_' + k];
+    return pat ? fmtTime(CONFIG.date, pat) : '';
   });
   tpl = tpl.replace(/location_latlng/g, latlng());
   // 涉及拍摄参数的行：四项都取"值或兜底"；连兜底都没有才整行置空（仍占一行高）
@@ -729,13 +718,13 @@ var wmGradAxis = function (deg, x, y, w, h) {
 //   · stop% → 100%：A → B 渐变
 // 早先写成 A@0 / B@stop / B@1，等于 0→stop 一直在 A→B 插值 ⇒ 分隔线取色偏
 var wmForeground = function (ctx, x, y, w, h) {
-  var deg = parseFloat(APP('foreground-direction', '90deg'));
+  var deg = parseFloat(APP('foreground-direction'));
   if (!isFinite(deg)) deg = 90;
   var a = wmGradAxis(deg, x, y, w, h);
   var g = ctx.createLinearGradient(a[0], a[1], a[2], a[3]);
-  var start = APP('foreground-start', '#000000');
-  var end = APP('foreground-end', start);
-  var stop = parseFloat(APP('foreground-stop', '0%'));
+  var start = APP('foreground-start');
+  var end = APP('foreground-end');
+  var stop = parseFloat(APP('foreground-stop'));
   if (!isFinite(stop)) stop = 0;
   stop = Math.min(0.999, Math.max(0, stop / 100));
   // ★ 颜色必须过 lgCssColor：preset 是 #AARRGGBB（Android 口径），canvas 只认 #RRGGBB/#RRGGBBAA。
@@ -769,18 +758,16 @@ var wmFontFam = function (fam) {
 // 字重映射（唯一口径：05-layout 的测宽与这里的绘制都必须走它，否则"量的宽度"和"画的字形"不是一个字重）：
 //   canvas 的 ctx.font 只认 100..900 的【百位档】，静态字体（Helvetica Neue / SF）也不吃 wght 变体轴
 //   （把 501/451/620 这类数值写进去只会按 CSS 字重匹配规则落到 Medium/Bold 等固定字面 ⇒ 观感偏粗）。
-//   取数优先级：font['design-weight']（= APK wmRes.fonts.*.variation 的 'wght' N，权威设计值）
-//              → font['font-weight']（apk2preset 的手工档位 620/550/500，只用于没有 design-weight 的旧 preset）。
+//   取数来源只有一个：font['design-weight']（= APK wmRes.fonts.*.variation 的 'wght' N，权威设计值）。
+//   以前还留了一条 `font['font-weight']` 兜底（apk2preset 的手工档位 620/550/500），那是"同一概念两个键"，
+//   已随 preset 规范删除；构建期校验 design-weight 必填。
 //   ★ 收敛方向 = 【向下取整到百位档】，不是就近四舍五入：我们的系统字体在同一档位上比 MiSans VF 观感更重，
 //     就近取整会把设计值 451 抬到 500 ⇒ 日期/经纬度行跟机型行一样粗（用户反馈"字重太大"）；
 //     而参考配置里第二行本就比第一行细（MiSans 451 vs 501）。
 //   同文案/同尺度的并排对照见 _local/stroke_vs_ref.png：机型行 501↔500 吻合、第二行 451↔400 吻合。
 //     映射表：401→400、451→400、501→500、550→500、620→600（下限 100，上限 900）
 var wmFontWeight = function (f) {
-  var raw = (f && typeof f === 'object')
-    ? ((f['design-weight'] != null && f['design-weight'] !== '') ? f['design-weight'] : f['font-weight'])
-    : f;
-  var n = parseFloat(raw);
+  var n = parseFloat(f['design-weight']);
   if (!isFinite(n) || n <= 0) return 400;
   return Math.max(100, Math.min(900, Math.floor(n / 100) * 100));
 };
@@ -816,7 +803,7 @@ var wmDrawText = function (ctx, v) {
   //   #AARRGGBB / @color=#AARRGGBB → 颜色通道里的 alpha。
   //   font.opacity：字体对象上的显式不透明度（目前 preset 未用，保留语义）。
   var ca = lgTextAlpha(f.color, CONFIG.appearance);
-  if (f.opacity != null) ca *= parseFloat(f.opacity);
+  ca *= parseFloat(f.opacity);          // opacity 是字体上的规范必填键（默认显式写 1）
   ctx.globalAlpha = isFinite(ca) ? Math.max(0, Math.min(1, ca)) : 1;
   wmShadow(ctx, f.shadow);
   var ls = (parseFloat(f['letter-spacing']) || 0) * sizePx;
@@ -859,7 +846,7 @@ var wmDrawFill = function (ctx, v) {
   if (!fill || !fill.foreground) return false;
   ctx.save();
   if (fill.alpha != null) ctx.globalAlpha = Math.max(0, Math.min(1, fill.alpha));
-  ctx.fillStyle = lgCssColor(APP('foreground-start', '#000000'));
+  ctx.fillStyle = lgCssColor(APP('foreground-start'));
   ctx.fillRect(v.ax, v.ay, v.w, v.h);
   ctx.restore();
   return true;
@@ -867,7 +854,7 @@ var wmDrawFill = function (ctx, v) {
 
 // 底色：stitch(拼接)款样式有底色 ⇒ 铺满画布；overlay(叠加)款是 transparent ⇒ 不铺（保住 alpha）
 var wmDrawBackdrop = function (ctx, W, H) {
-  var bgc = String(APP('background-color', '')).trim();
+  var bgc = String(APP('background-color')).trim();
   if (!bgc || bgc === 'transparent' || bgc === 'none') return;
   ctx.save();
   ctx.fillStyle = lgCssColor(bgc);
@@ -878,7 +865,7 @@ var wmDrawBackdrop = function (ctx, W, H) {
 // 背景图（样式里的 background-image）：cover / stretch / repeat，复用模板原有的 bg-fit 语义
 var wmDrawBgImage = function (ctx, W, H, img) {
   if (!img || !img.width || !img.height) return;
-  var fit = APP('background-fit', 'cover');
+  var fit = APP('background-fit');          // 值域 cover/repeat/stretch（build.py 校验；else 分支就是 cover）
   ctx.save();
   if (fit === 'stretch') {
     ctx.drawImage(img, 0, 0, W, H);
@@ -1018,7 +1005,7 @@ var wmPublish = function (canvas) {
   return img;
 };
 
-// 90-boot: 入口 —— RUNTIME → CONFIG → 选 layout 变体 → CSS 变量 → 绝对定位建树 → 防挤压
+// 90-boot: 入口 —— RUNTIME → CONFIG → 选中样式 → 选 layout 变体 → 绝对坐标建树 → 防挤压 → 绘制
 (function () {
   var fail = function (msg) {
     var b = document.getElementById('wm-error');
@@ -1036,44 +1023,33 @@ var wmPublish = function (canvas) {
     // 2) 选中样式（快捷指令从该 preset 的 styles 里挑一款传进来）→ 改写 CONFIG.appearance，见 §4.5
     //    foreground-slots 是 @foreground=N 的透明度槽位数组（见 core/05-layout lgForegroundAlpha）：
     //    选中样式的整份词典都在这里落地，缺了它就把槽位悄悄丢了。
-    var ap = CONFIG.appearance = CONFIG.appearance || {};
+    //    ★APP_KEYS = 规范样式的 9 个键，一个不多一个不少★（build.py 双向对账）：
+    //      以前这里多一个 'text-shadow'（没有任何样式写它、引擎也不读）、少一个 background-fit 的
+    //      "空值也照抄"语义 —— 那是在迁就 styles 结构不整齐。
+    var ap = CONFIG.appearance = {};
     var APP_KEYS = ['foreground-start','foreground-end','foreground-stop','foreground-direction',
-                    'foreground-slots',
-                    'line-opacity','background-color','background-image','background-fit','text-shadow'];
+                    'line-opacity','background-color','background-image','background-fit',
+                    'foreground-slots'];
     for (var a = 0; a < APP_KEYS.length; a++) {
-      var ak = APP_KEYS[a];
-      if (OVERRIDE && OVERRIDE[ak] !== '' && OVERRIDE[ak] != null) ap[ak] = OVERRIDE[ak];
+      ap[APP_KEYS[a]] = OVERRIDE[APP_KEYS[a]];
     }
-    var st = document.documentElement.style;
-    // overlay(叠加)类模板：整页必须透明 —— 不能落回 #FFFFFF 默认值（否则水印层铺满画布 = 白底）
-    var __bgc = APP('background-color', '#FFFFFF');
-    if (CONFIG.compose && CONFIG.compose.mode === 'overlay') __bgc = 'transparent';
-    st.setProperty('--background-color', __bgc);
-    st.setProperty('--foreground-start', APP('foreground-start', '#000000'));
-    st.setProperty('--foreground-end', APP('foreground-end', APP('foreground-start', '#000000')));
-    st.setProperty('--foreground-stop', APP('foreground-stop', '0%'));
-    st.setProperty('--foreground-direction', APP('foreground-direction', '90deg'));
+    // ★这里以前还写过 5 条 CSS 自定义属性（--background-color / --foreground-*）★：
+    //   页面是纯 canvas 直绘，index.html.txt 与 bundle 里【没有任何 var(--…) 消费者】⇒ 全是死代码；
+    //   其中 `APP('background-color','#FFFFFF')` 和 `if (mode==='overlay') __bgc='transparent'`
+    //   是替"preset 自己没把叠加款底色写成 transparent"兜底 —— 现在样式表里 transparent 是显式值。
 
     // 纯 canvas 直绘：页面里【没有任何布局 DOM 盒子】（#wm-root 已删除）。
     // 底色 / 背景图 / 文字 / 分隔线 / logo 全部由 40-draw.js 按布局树的绝对坐标画进 #wm-canvas，
     // 再把 canvas 发布成页面里唯一的一个 <img>（取图动作 detect.images 靠提取这个 <img>）。
 
-    // 3) 选 layout 变体 —— 变体名是一套固定词汇（build.py 会校验，两个 preset 必须一致）：
-    //      layout = 有定位用的版式；layout_loc_off = 无定位用的版式；
-    //      单变体 preset 只写 layout（= 两种定位共用同一版式，bandDpGps = bandDpLocOff）。
-    //    以前对"非常规命名"（如 91 号的 center_top）用 names[0] 兜底，那是在迁就两个 preset
-    //    命名不一致；现在 preset 已统一成 layout/layout_loc_off，兜底删除：不满足契约就报错。
-    var gps = hasGps(), variants = CONFIG.layout_group || [], pick = null, pickName = '';
-    var names = [];
-    for (var v = 0; v < variants.length; v++) names.push(Object.keys(variants[v])[0]);
-    var want = gps ? 'layout' : 'layout_loc_off';
-    if (names.indexOf(want) >= 0) pickName = want;
-    else if (names.length === 1) pickName = names[0];   // 单变体：有/无定位共用同一版式
-    if (!pickName) throw new Error('layout_group 缺少变体 ' + want + '（多变体 preset 必须同时给 layout 与 layout_loc_off）');
-    for (var w = 0; w < variants.length; w++) {
-      if (Object.keys(variants[w])[0] === pickName) { pick = variants[w][pickName]; break; }
-    }
-    if (!pick) throw new Error('layout_group 为空');
+    // 3) 选 layout 变体 —— layout_group 是【按变体名索引的对象】（与 metadata.bandDpByVariant 同构），
+    //      变体名是一套固定词汇，构建期强校验：layout（有定位用）/ layout_loc_off（无定位用）两个都在。
+    //      ★不再有"单变体就取第一个/唯一那个"的兜底★：那是在迁就 leica91/shoton 只写一半变体；
+    //      现在单变体 preset 也必须把 layout_loc_off 显式写全（内容可与 layout 相同）。
+    var gps = hasGps(), variants = CONFIG.layout_group || {};
+    var pickName = gps ? 'layout' : 'layout_loc_off';
+    var pick = variants[pickName];
+    if (!pick) throw new Error('layout_group 缺少变体 ' + pickName + '（layout 与 layout_loc_off 必须都写）');
 
     // 4) 通用布局引擎：measure/place（绝对坐标）→ 布局树（【不建任何 DOM】）。文字被挤时按比例缩字号重排（幂等）
     var renderPass = function (sizeScale) {
@@ -1134,7 +1110,7 @@ var wmPublish = function (canvas) {
     var lgFitImages = function (L) {
       var changed = false, gapPx = LG_GUARD_GAP_DP * CONFIG.unit;
       var widestAutoImage = function (n, best) {
-        if (n.type === 'ImageView' && n.enabled && n.dw && (n.dw.v === 0 || n.dw.v === LG_WRAP) &&
+        if (n.type === 'ImageView' && n.enabled && n.dw && n.dw.v === LG_WRAP &&
             n.w > (best ? best.w : 0)) best = n;
         for (var k = 0; k < (n.children || []).length; k++) best = widestAutoImage(n.children[k], best);
         return best;

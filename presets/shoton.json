@@ -1,13 +1,10 @@
 {
-  "version": "1",
   "metadata": {
     "id": "shoton",
     "designShort": 1020,
-    "position": "in",
-    "source": "本项目：Shot on iPhone 叠加（叠加模式 ⇒ 层=整张照片；两行徽标 = logo + Shot on 机型）",
-    "gravityHint": "位置改 JSON 即可（shot_badge.gravity / margin_top）：上='top|center_horizontal' + margin_top 110dp；中='center_horizontal|center_vertical' + 0dp；下='bottom|center_horizontal' + margin_top -110dp",
     "bandDpByVariant": {
-      "layout": 143.0
+      "layout": 143.0,
+      "layout_loc_off": 143.0
     },
     "bandDpGps": 143.0,
     "bandDpLocOff": 143.0
@@ -52,94 +49,154 @@
       ]
     }
   },
-  "userConfig": {
-    "date": false,
-    "exifText": false,
-    "locationText": false
-  },
   "compose": {
     "mode": "overlay",
     "stitch": {
       "direction": "Vertically",
       "spacing": 0
-    },
-    "overlay": {
-      "anchor": "Center",
-      "width": "photo",
-      "height": "photo",
-      "rotation": 0,
-      "opacityPercent": 100
     }
   },
-  "layout_group": [
-    {
-      "layout": [
-        {
-          "type": "Layout",
-          "id": "all_content",
-          "orientation": "overlap",
-          "layout_width": "match_parent",
-          "layout_height": "match_parent",
-          "gravity": "left",
-          "childViews": [
-            {
-              "type": "Layout",
-              "id": "shot_badge",
-              "orientation": "vertical",
-              "layout_width": "wrap_content",
-              "layout_height": "wrap_content",
-              "gravity": "center_horizontal|center_vertical",
-              "margin_top": "0dp",
-              "childViews": [
-                {
-                  "type": "ImageView",
-                  "id": "logo",
-                  "layout_gravity": "center_horizontal",
-                  "display_height": "78dp",
-                  "display_width": "0dp",
-                  "path": "pathType=direct;path=logo",
-                  "max_width": 0,
-                  "max_width_ratio": 2.5,
-                  "childViews": []
-                },
-                {
-                  "type": "TextView",
-                  "id": "model",
-                  "layout_gravity": "center_horizontal",
-                  "margin_top": "18dp",
-                  "text": "@model=Shot on @{model}",
-                  "font_ref": "f1",
-                  "childViews": []
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ],
+  "userConfig": {
+    "date": false,
+    "exifText": false,
+    "locationText": false
+  },
+  "layout_group": {
+    "layout": [
+      {
+        "type": "Layout",
+        "id": "all_content",
+        "orientation": "overlap",
+        "layout_width": "match_parent",
+        "layout_height": "match_parent",
+        "gravity": "left",
+        "margin_left": "0dp",
+        "margin_top": "0dp",
+        "padding_left": "0dp",
+        "padding_top": "0dp",
+        "padding_right": "0dp",
+        "padding_bottom": "0dp",
+        "background": "",
+        "optional": false,
+        "childViews": [
+          {
+            "type": "Layout",
+            "id": "shot_badge",
+            "orientation": "vertical",
+            "layout_width": "wrap_content",
+            "layout_height": "wrap_content",
+            "gravity": "center_horizontal|center_vertical",
+            "margin_left": "0dp",
+            "margin_top": "0dp",
+            "padding_left": "0dp",
+            "padding_top": "0dp",
+            "padding_right": "0dp",
+            "padding_bottom": "0dp",
+            "background": "",
+            "optional": false,
+            "childViews": [
+              {
+                "type": "ImageView",
+                "id": "logo",
+                "gravity": "center_horizontal",
+                "margin_left": "0dp",
+                "margin_top": "0dp",
+                "display_width": "wrap_content",
+                "display_height": "78dp",
+                "max_width": "0dp",
+                "max_width_ratio": 2.5,
+                "path": "logo",
+                "childViews": []
+              },
+              {
+                "type": "TextView",
+                "id": "model",
+                "gravity": "center_horizontal",
+                "margin_left": "0dp",
+                "margin_top": "18dp",
+                "optional": false,
+                "text": "@model=Shot on @{model}",
+                "font_ref": "f1",
+                "childViews": []
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "layout_loc_off": [
+      {
+        "type": "Layout",
+        "id": "all_content",
+        "orientation": "overlap",
+        "layout_width": "match_parent",
+        "layout_height": "match_parent",
+        "gravity": "left",
+        "margin_left": "0dp",
+        "margin_top": "0dp",
+        "padding_left": "0dp",
+        "padding_top": "0dp",
+        "padding_right": "0dp",
+        "padding_bottom": "0dp",
+        "background": "",
+        "optional": false,
+        "childViews": [
+          {
+            "type": "Layout",
+            "id": "shot_badge",
+            "orientation": "vertical",
+            "layout_width": "wrap_content",
+            "layout_height": "wrap_content",
+            "gravity": "center_horizontal|center_vertical",
+            "margin_left": "0dp",
+            "margin_top": "0dp",
+            "padding_left": "0dp",
+            "padding_top": "0dp",
+            "padding_right": "0dp",
+            "padding_bottom": "0dp",
+            "background": "",
+            "optional": false,
+            "childViews": [
+              {
+                "type": "ImageView",
+                "id": "logo",
+                "gravity": "center_horizontal",
+                "margin_left": "0dp",
+                "margin_top": "0dp",
+                "display_width": "wrap_content",
+                "display_height": "78dp",
+                "max_width": "0dp",
+                "max_width_ratio": 2.5,
+                "path": "logo",
+                "childViews": []
+              },
+              {
+                "type": "TextView",
+                "id": "model",
+                "gravity": "center_horizontal",
+                "margin_left": "0dp",
+                "margin_top": "18dp",
+                "optional": false,
+                "text": "@model=Shot on @{model}",
+                "font_ref": "f1",
+                "childViews": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "fonts": {
     "f1": {
-      "color": "#FFFFFFFF",
-      "typeface": "default",
+      "color": "@foreground=0",
       "font-size": 36.0,
       "line-height": 47.0,
-      "font-weight": 620,
       "design-weight": 501,
       "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
       "shadow": "0 1px 1px #80000000",
-      "letter-spacing": "0.01em"
-    },
-    "f3": {
-      "color": "#FFFFFFFF",
-      "typeface": "default",
-      "font-size": 26.0,
-      "line-height": 34.0,
-      "font-weight": 500,
-      "design-weight": 401,
-      "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
-      "shadow": "0 1px 1px #80000000",
-      "letter-spacing": "0.18em"
+      "letter-spacing": "0.01em",
+      "opacity": 1
     }
   }
 }
