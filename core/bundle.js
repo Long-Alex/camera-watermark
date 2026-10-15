@@ -180,7 +180,8 @@ var lgTextOf = function (node) {
 };
 
 // ---------------------------------------------------------------- 视图树（APK childViews → view）
-var lgBuild = function (nodes) {
+// pkey = 父节点路径（"#索引"逐级拼接）⇒ 每个 view 有一个【跨重排稳定】的 key。见 lgSizeImage 的让位因子表。
+var lgBuild = function (nodes, pkey) {
   var out = [];
   for (var i = 0; i < (nodes || []).length; i++) {
     var n = nodes[i], v = {
@@ -193,11 +194,12 @@ var lgBuild = function (nodes) {
       background: n.background || null, children: [], text: '', font: null,
       optional: !!n.optional, dw: lgDim(n.display_width, 0), dh: lgDim(n.display_height, 0),
       maxW: (typeof n.max_width === 'number') ? n.max_width : null,
-      img: null, enabled: true, w: 0, h: 0, x: 0, y: 0, _t: null
+      img: null, enabled: true, w: 0, h: 0, x: 0, y: 0, _t: null,
+      _key: (pkey || '') + '#' + i
     };
     if (v.type === 'Layout') {
       v.gravity = lgGrav(n.gravity);
-      v.children = lgBuild(n.childViews);
+      v.children = lgBuild(n.childViews, v._key);
     } else if (v.type === 'TextView') {
       v.gravity = lgGrav(n.layout_gravity);
       v.text = n.text || '';
@@ -211,6 +213,14 @@ var lgBuild = function (nodes) {
   return out;
 };
 
+// ---------------------------------------------------------------- 图片视图：尺寸 + 行内让位因子
+// ★行内"图片让位"因子表：key → 累计收缩因子（0..1）★
+//   放这里而不是 90-boot 的局部变量，是因为 lgLayout 每趟（每次 renderPass）都重建整棵视图树，
+//   因子必须存在树外、按【跨重排稳定的节点 key】索引，才能被 lgSizeImage 在下一趟重新应用。
+//   计算方是 90-boot 的 lgFitImages（它拿得到绝对坐标 = 真实剩余宽度）。
+var LG_IMG_FIT = {};
+var LG_IMG_FLOOR = 0.2;      // 安全网：任何让位都不把图片缩到标称宽度的 20% 以下
+
 // 图片视图：按 display_height/width 与素材宽高比求尺寸（复刻 measure 的 ImageView 分支；dp × unit → px）
 var lgSizeImage = function (v, aspect) {
   var s = CONFIG.unit;
@@ -221,12 +231,18 @@ var lgSizeImage = function (v, aspect) {
   else if (dh > 0) { v.w = dh * aspect; v.h = dh; }
   else if (dw > 0) { v.w = dw; v.h = aspect > 0 ? dw / aspect : 0; }
   else { v.w = v.img.w * s; v.h = v.img.h * s; }
-  // ★安全宽度 = 高度的 2 倍★（用户 2026-10-15 定）：宽字标（哈苏那种长条 logo）不再把右侧文字挤扁。
-  //   节点上若另有 max_width（项目对小米引擎的有意外加），取更严的那个；0/缺省 = 不额外限制。
+  // ★宽度上限只认节点自己声明的 dp 预算（max_width；0/缺省 = 不限）★
+  //   这里以前还有一条 "min(max_width, 显示高度 × 2)" 的派生上限（commit f82c8c1 / 踩坑 §26）：
+  //   那是为 12.8:1 的哈苏 wordmark 打的补丁，而该素材已在 4384774 换成 1.26:1 的"H"标 ——
+  //   补丁的触发素材不在了，只留下副作用：宽高比 > 2 的素材 display_height 形同虚设
+  //   （Canon 4.75 → 高度只达成 42%、SONY 5.68 → 35%），节点声明的 max_width 也被架空。
+  //   派生值还跟行内真实剩余宽度无关（"各处兜底、各处不一致"的根源）。
+  //   放不下由 90-boot 的 lgFitImages【让图片让位】处理：先缩自适应宽度的图片，文字保持设计字号。
   var capDp = (typeof v.maxW === 'number' && v.maxW > 0) ? v.maxW : 0;
-  var hDp = (v.dh && v.dh.v !== LG_WRAP && v.dh.v !== LG_MATCH) ? v.dh.v : 0;
-  if (hDp > 0) capDp = (capDp > 0) ? Math.min(capDp, hDp * 2) : hDp * 2;
   if (capDp > 0 && v.w > capDp * s) { v.w = capDp * s; v.h = aspect > 0 ? v.w / aspect : v.h; }
+  // 行内让位因子（lgFitImages 按真实剩余宽度回填）：宽高一起等比缩，保证素材不变形
+  var fit = LG_IMG_FIT[v._key];
+  if (fit > 0 && fit < 1) { v.w *= fit; v.h *= fit; }
 };
 
 var lgTextSize = function (v, sizeScale) {
@@ -1056,7 +1072,10 @@ var wmPublish = function (canvas) {
     // （right/center gravity，位置由父容器固定）所占区域，就按【可用空间】缩字号重排。
     // 三条判据都是踩过的坑：
     //   ① 必须两轴相交：只比 x 会把同一列上下两个 band 的兄弟误判（曾把 91 整层缩到 0.4 下限）
-    //   ② 在 x 上完全包住 a 的兄弟是"整行叠加层"（如 91 的 right_bottom_group），设计如此，不参与
+    //   ② 整行叠加层（layout_width=match_parent，如 91 的 right_bottom_group）设计如此，不参与。
+    //      ★判据看【声明】不看几何★：原来是"几何上 b 完全包住 a 就当叠加层跳过"，右组一旦过宽
+    //      （b.ax < a.ax）就会被误判成叠加层、整条判据跳过 ⇒ 布局已经坏掉却没人报错
+    //      （实测 max_width=0 + 12.8:1 词标：logo 819×64、b.ax=-218、logo 出画布，fitted 仍是 False）。
     //   ③ 因子用 avail = b.ax - gap - a.ax 算，而不是两盒跨度 span —— span 里混进很宽的右组会把
     //      因子算得极轻（long_model 只缩 0.6%，依然压住 logo，实测报"logo 会贴住机型文字"）
     var LG_GUARD_GAP_DP = 24;   // 安全间隙(dp)：机型文字与右组至少留 24dp（harness 断言 ≥20dp，余 4dp）
@@ -1073,8 +1092,8 @@ var wmPublish = function (canvas) {
             var a = vis[j - 1], b = vis[j];
             // ① 同一行
             if (!(a.ay < b.ay + b.h - 0.5 && b.ay < a.ay + a.h - 0.5)) continue;
-            // ② 整行叠加层（完全包住 a）不参与
-            if (b.ax <= a.ax + 0.5 && b.ax + b.w >= a.ax + a.w - 0.5) continue;
+            // ② 整行叠加层不参与（按声明判据）
+            if (b.lw && b.lw.v === LG_MATCH) continue;
             // ③ b 在右侧且 a 挤进了它前面的安全间隙 ⇒ 按可用空间缩
             var avail = b.ax - gapPx - a.ax;
             if (avail > 0.5 && a.w > avail + 0.5) {
@@ -1094,6 +1113,53 @@ var wmPublish = function (canvas) {
       };
       for (var t = 0; t < L.tree.length; t++) walk(L.tree[t]);
       return worst;
+    };
+    // 防挤压第一道（B：行内让位）：与 overlapFactor 同一套 a/b 判据，但【先让自适应宽度的图片让位】——
+    // 文字保持设计字号。overflow = a 右缘(+安全间隙) 越过 b 左缘多少 ⇒ b 里最宽的那张 auto 宽度图片
+    // 按这个量缩宽、高等比跟着缩；缩到 LG_IMG_FLOOR 还不够，才交给 overlapFactor 缩字号兜底。
+    // ★预算必须是布局期算出来的（真实剩余宽度），不能写静态常量★ —— 这正是已删的"高度 × 2"的根本毛病：
+    //   它跟行内容宽、跟兄弟们的实际宽度都无关，所以宽字标只能被砍高度。
+    // 幂等：因子存在树外的 LG_IMG_FIT（见 05-layout），每轮 renderPass 从标称尺寸重排后再算。
+    var lgFitImages = function (L) {
+      var changed = false, gapPx = LG_GUARD_GAP_DP * CONFIG.unit;
+      var widestAutoImage = function (n, best) {
+        if (n.type === 'ImageView' && n.enabled && n.dw && (n.dw.v === 0 || n.dw.v === LG_WRAP) &&
+            n.w > (best ? best.w : 0)) best = n;
+        for (var k = 0; k < (n.children || []).length; k++) best = widestAutoImage(n.children[k], best);
+        return best;
+      };
+      var walk = function (v) {
+        if (v.type === 'Layout' && v.orientation === 'horizontal') {
+          var vis = [];
+          for (var i = 0; i < v.children.length; i++) {
+            var c = v.children[i];
+            if (c.enabled && c.w > 1) vis.push(c);
+          }
+          for (var j = 1; j < vis.length; j++) {
+            var a = vis[j - 1], b = vis[j];
+            if (!(a.ay < b.ay + b.h - 0.5 && b.ay < a.ay + a.h - 0.5)) continue;   // ① 同一行
+            if (b.lw && b.lw.v === LG_MATCH) continue;                             // ② 整行叠加层
+            var overflow = (a.ax + a.w + gapPx) - b.ax;                            // ③ 压进安全间隙多少
+            if (overflow <= 0.5) continue;
+            var img = widestAutoImage(b, null);
+            if (!img) continue;                                                    // b 里没图片 ⇒ 交给缩字号
+            var cur = LG_IMG_FIT[img._key] || 1;
+            var next = Math.max(LG_IMG_FLOOR, cur * (img.w - overflow) / img.w);
+            if (next < cur - 0.005) {
+              LG_IMG_FIT[img._key] = next; changed = true;
+              if (!window.__WM_IMGFIT) window.__WM_IMGFIT = [];
+              if (window.__WM_IMGFIT.length < 8) {
+                window.__WM_IMGFIT.push((img.id || '?') + ' overflow=' + overflow.toFixed(1)
+                  + ' → fit=' + next.toFixed(3) + ' (' + img.w.toFixed(1) + 'px→'
+                  + (img.w * next / cur).toFixed(1) + 'px)');
+              }
+            }
+          }
+        }
+        for (var m = 0; m < v.children.length; m++) walk(v.children[m]);
+      };
+      for (var t2 = 0; t2 < L.tree.length; t2++) walk(L.tree[t2]);
+      return changed;
     };
     // 4a) 渲染遥测：页面已无任何布局 DOM，校验需要的版式数据（boxes/texts/fontsize/…）
     //     由布局树暴露到 window.__WM_TELEMETRY，字段名与旧 DOM 探测保持一致。
@@ -1130,6 +1196,8 @@ var wmPublish = function (canvas) {
     // 因此 document.fonts.ready 之后必须【重新布局 + 刷新遥测 + 重绘】（否则校验读到过时数据、画布也偏窄）。
     var layoutOnce = function () {
       var scale = 1, Lx = renderPass(scale), fx = false;
+      // 先让图片让位（线性收敛，两趟内停）：让位后文字一般一个像素都不用动，也就不会触发下面的缩字号。
+      for (var ip = 0; ip < 3; ip++) { if (!lgFitImages(Lx)) break; Lx = renderPass(scale); }
       for (var pass = 0; pass < 3; pass++) {
         var f = overlapFactor(Lx);
         if (f >= 0.999) break;

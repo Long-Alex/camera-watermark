@@ -98,7 +98,7 @@
                   "display_height": "78dp",
                   "display_width": "0dp",
                   "path": "pathType=direct;path=logo",
-                  "max_width": 400,
+                  "max_width": 0,
                   "childViews": []
                 },
                 {
