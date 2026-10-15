@@ -28,7 +28,14 @@
       "line-opacity": 0.3,
       "background-color": "#FFFFFF",
       "background-image": "",
-      "background-fit": ""
+      "background-fit": "",
+      "foreground-slots": [
+        1.0,
+        0.3,
+        0.5019607843137255,
+        1.0,
+        0.7490196078431373
+      ]
     },
     "dark": {
       "foreground-start": "#FFFFFF",
@@ -38,7 +45,14 @@
       "line-opacity": 0.7,
       "background-color": "#141414",
       "background-image": "",
-      "background-fit": ""
+      "background-fit": "",
+      "foreground-slots": [
+        1.0,
+        0.7,
+        0.5019607843137255,
+        1.0,
+        0.7490196078431373
+      ]
     },
     "rose": {
       "foreground-start": "#FDC9AE",
@@ -48,7 +62,14 @@
       "line-opacity": 0.7,
       "background-color": "#1D1D1F",
       "background-image": "",
-      "background-fit": ""
+      "background-fit": "",
+      "foreground-slots": [
+        1.0,
+        0.7,
+        0.5019607843137255,
+        1.0,
+        0.7490196078431373
+      ]
     },
     "red": {
       "foreground-start": "#FFFFFF",
@@ -58,7 +79,14 @@
       "line-opacity": 0.6,
       "background-color": "#141414",
       "background-image": "red",
-      "background-fit": "cover"
+      "background-fit": "cover",
+      "foreground-slots": [
+        1.0,
+        0.6,
+        0.5019607843137255,
+        1.0,
+        0.7490196078431373
+      ]
     },
     "gold": {
       "foreground-start": "#FFE6A54F",
@@ -68,7 +96,14 @@
       "line-opacity": 0.6,
       "background-color": "#141414",
       "background-image": "",
-      "background-fit": ""
+      "background-fit": "",
+      "foreground-slots": [
+        1.0,
+        0.6,
+        0.5019607843137255,
+        1.0,
+        0.7490196078431373
+      ]
     }
   },
   "compose": {
@@ -507,69 +542,5 @@
       "shadow": null,
       "letter-spacing": "0em"
     }
-  },
-  "wmRes": {
-    "background": [
-      {
-        "name": "white",
-        "icon": "@img=icon_background_white.webp",
-        "value": "@color=#FFFFFFFF",
-        "foreground": [
-          "#FF000000",
-          "#4D000000",
-          "#80000000",
-          "#FF000000",
-          "#BF000000"
-        ]
-      },
-      {
-        "name": "black",
-        "icon": "@img=icon_background_black.webp",
-        "value": "@color=#FF141414",
-        "foreground": [
-          "#FFFFFFFF",
-          "#B2FFFFFF",
-          "#80FFFFFF",
-          "#FFFFFFFF",
-          "#BFFFFFFF"
-        ]
-      },
-      {
-        "name": "light_blur",
-        "icon": "@img=icon_background_light_blur.webp",
-        "value": "@algo=light_blur",
-        "foreground": [
-          "#FF000000",
-          "#4D000000",
-          "#80000000",
-          "#FF000000",
-          "#BF000000"
-        ]
-      },
-      {
-        "name": "dark_blur",
-        "icon": "@img=icon_background_dark_blur.webp",
-        "value": "@algo=dark_blur",
-        "foreground": [
-          "#FFFFFFFF",
-          "#B2FFFFFF",
-          "#80FFFFFF",
-          "#FFFFFFFF",
-          "#BFFFFFFF"
-        ]
-      },
-      {
-        "name": "gold",
-        "icon": "@img=icon_background_gold.webp",
-        "value": "@color=#FF141414",
-        "foreground": [
-          "#FF141414",
-          "#FFE6A54F",
-          "#FFE6A54F",
-          "#FFE6A54F",
-          "#BFE6A54F"
-        ]
-      }
-    ]
   }
 }

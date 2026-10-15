@@ -25,7 +25,14 @@
       "line-opacity": 0.5,
       "background-color": "transparent",
       "background-image": "",
-      "background-fit": ""
+      "background-fit": "",
+      "foreground-slots": [
+        1.0,
+        0.5,
+        0.5,
+        0.25,
+        0.0
+      ]
     },
     "dark": {
       "foreground-start": "#1D1D1F",
@@ -35,7 +42,14 @@
       "line-opacity": 0.4,
       "background-color": "transparent",
       "background-image": "",
-      "background-fit": ""
+      "background-fit": "",
+      "foreground-slots": [
+        1.0,
+        0.4,
+        0.5,
+        0.25,
+        0.0
+      ]
     }
   },
   "userConfig": {
@@ -126,18 +140,5 @@
       "shadow": "0 1px 1px #80000000",
       "letter-spacing": "0.18em"
     }
-  },
-  "wmRes": {
-    "background": [
-      {
-        "name": "transparent_white",
-        "icon": "@img=icon_background_white.webp",
-        "value": "@color=#00FFFFFF",
-        "foreground": [
-          "#FFFFFFFF",
-          "#BFFFFFFF"
-        ]
-      }
-    ]
   }
 }

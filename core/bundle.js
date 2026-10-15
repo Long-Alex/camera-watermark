@@ -70,18 +70,12 @@ var lgGrav = function (s) {
 
 // ---------------------------------------------------------------- 颜色（APK：#AARRGGBB / @foreground=N / @color=）
 // ★ 颜色一律是 8 位 ARGB 十六进制（#AARRGGBB，Android 口径：前两位 = alpha）：
-//   两个 preset 的调色板（wmRes.background[].foreground）与字体色都已按这一种形态规范化，
-//   构建期也会拒绝非 #AARRGGBB 的调色板项（build.py 3.25）。以前混用 CSS 具名色
-//   （"black" / "white"）逼着这里带一张具名色表 + 一个 lgRgba 解析器 —— 两者都已删除。
-// "#RGB" / "#RRGGBB" / "#AARRGGBB" → "RRGGBB"（其它返回 null）
-var lgHex6 = function (c) {
-  var s = String(c == null ? '' : c).trim();
-  if (s.charAt(0) !== '#') return null;
-  var h = s.slice(1);
-  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-  if (h.length === 8) h = h.slice(2);
-  return (h.length === 6 && /^[0-9a-f]{6}$/i.test(h)) ? h : null;
-};
+//   styles 的 foreground-start/-end 与字体色都已按这一种形态规范化，构建期也照这个校验（build.py 3.25）。
+//   以前混用 CSS 具名色（"black" / "white"）逼着这里带一张具名色表 + 一个 lgRgba 解析器 —— 两者都已删除。
+// ★ @foreground=N 只表达【透明度层级】，颜色另有唯一来源（styles.foreground-start）★
+//   N 的 alpha 由每个样式自己声明的 styles.<id>.foreground-slots 给出（见下面 lgForegroundAlpha）；
+//   原先那套"从 APK 调色板 wmRes.background 里挑一份"的逻辑（lgHex6/lgLumOf/lgSwatchValue/lgPaletteFor）
+//   已整体删除 —— 它让同一个 alpha 同时写在 styles 与 wmRes 两处，正是"两处不一致"的根源。
 // ★ 颜色拆解（全项目唯一的颜色解析器）★
 //   本项目 preset 的颜色契约是 **#AARRGGBB（前两位 = alpha，Android/APK 原文）**，构建期也照这个校验
 //   （build.py 3.25）。但浏览器把 8 位十六进制按 **#RRGGBBAA** 解析 ⇒ 直接把 preset 的 #AARRGGBB 塞给
@@ -121,70 +115,31 @@ var lgCssColor = function (ref) {
   var r = parseInt(p.rgb.slice(1, 3), 16), g = parseInt(p.rgb.slice(3, 5), 16), b = parseInt(p.rgb.slice(5, 7), 16);
   return 'rgba(' + r + ',' + g + ',' + b + ',' + (Math.round(p.alpha * 1000) / 1000) + ')';
 };
-// 颜色明度（0=黑 1=白）：用来根据"选中样式的前景色"挑同侧的主题调色板。
-// 输入只可能是 #AARRGGBB 十六进制（preset 已规范化）或 transparent（见下）；
-// 不再认 "black" / "white" 这类具名色（那是在迁就两套写法混用的调色板）。
-var lgLumOf = function (c) {
-  var s = String(c == null ? '' : c).trim().toLowerCase();
-  if (s === 'transparent') return 1;             // 透明底上的前景按"浅色文字"一侧归类
-  var h = lgHex6(s);
-  if (h == null) return 0;
-  var r = parseInt(h.slice(0, 2), 16) / 255, g = parseInt(h.slice(2, 4), 16) / 255, b = parseInt(h.slice(4, 6), 16) / 255;
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-};
-// 主题调色板：preset.wmRes.background = [{name, value:"@color=#AARRGGBB", foreground:[...]}]（APK 原文）
-// 主题不是 preset 里写死的 @background=white，而是【由选中的样式决定】：
-//   ① 首选【按底色精确匹配】：样式的 background-color == 某个调色板的 value（同为 #AARRGGBB，
-//      忽略大小写/@color= 前缀）。莱卡 111 的"黑金"款就是这一类：底色 #FF141414 与 black 款相同，
-//      但前景是金色 ⇒ 只有精确匹配才能把它和黑色款区分开。
-//   ② 退路（老规则，保持零回归）：样式前景是深色（浅底）→ 取前景数组 [0] 也是深色的那套（white/light_blur）；
-//      样式前景是浅色（深底）→ 取 [0] 也是浅色的那套（black/dark_blur/transparent_white）。
-//      注意这条规则【天然分不开"同为深色底"的黑色款与黑金款】（两者调色板 [0] 都是 #FF141414，
-//      距离并列 ⇒ 取先出现的 black）——所以必须先走 ①。
-// 两套调色板的 alpha 只在 [1] 上不同（0.30 vs 0.70），[2] 一律 50%，所以选错只影响 [1] 与 [2]。
-var lgSwatchValue = function (v) {
-  // 调色板 value 的规范化：#AARRGGBB 大写无前缀，用于精确比较（"@color=#ff141414" → "FF141414"）
-  var s = String(v == null ? '' : v).trim();
-  if (s.charAt(0) === '@' && s.indexOf('=') > 0) s = s.slice(s.indexOf('=') + 1).trim();
-  var h = lgHex6(s);
-  return h ? h.toUpperCase() : null;
-};
-var lgPaletteFor = function (preset, style) {
-  var list = ((preset || {}).wmRes || {}).background || [];
-  var wantColor = lgSwatchValue((style || {})['background-color']);
-  if (wantColor) {
-    for (var j = 0; j < list.length; j++) {
-      var fj = (list[j] || {}).foreground || [];
-      if (fj.length && lgSwatchValue(list[j].value) === wantColor) return list[j];
-    }
-  }
-  var want = lgLumOf((style || {})['foreground-start'] || '#000000');
-  var best = null, bd = Infinity;
-  for (var i = 0; i < list.length; i++) {
-    var pal = (list[i] || {}).foreground || [];
-    if (!pal.length) continue;
-    var d = Math.abs(lgLumOf(pal[0]) - want);
-    if (d < bd) { bd = d; best = list[i]; }
-  }
-  return best;
-};
-// ★ @foreground=N 的 alpha 语义（本次修复的根因）：
-//   权威定义（APK wmRes.background[theme].foreground 原文 + 参考实现 WmRes.resolve_color）：
-//     @foreground=N ⇒ 调色板第 N 项【本身就是一个带 alpha 的 ARGB 颜色】，不是"纯前景色再乘一个透明度"。
-//   莱卡 1 号（浅底主题）调色板 = ["#FF000000"(100%), "#4D000000"(30%), "#80000000"(50%), "black"(100%), "#BF000000"(75%)]
-//     ⇒ f2（日期/经纬度，color=@foreground=2）必须是【50% 黑】。
-//   以前引擎忽略 =N，一律画不透明前景色 ⇒ 第二行偏深（用户反馈）。
-//   调色板缺席 / N 越界 → 退回近似式 alpha = 1 − 0.25·N（=0→100% =1→75% =2→50% =3→25%），
-//   实测参考件 =1 是 30%（调色板 #4D000000），与近似式不符，故调色板优先。
+// ★ @foreground=N 的透明度语义（全项目唯一口径，方案 B：styles 是唯一来源）★
+//   APK 的 @foreground=N 本来是"主题调色板第 N 项（一个带 alpha 的 ARGB 颜色）"。
+//   本项目只沿用其中的【透明度层级】：颜色一律取 styles.foreground-start（渐变另有 foreground-end），
+//   第 N 档的 alpha 由【该样式自己声明】的 styles.<id>.foreground-slots[N] 给出 ——
+//   引擎不再从 preset.wmRes.background 里"按底色精确匹配 / 按明度就近挑"一份调色板：
+//     黑金款与黑色款的调色板 value 同为 #141414 ⇒ 精确匹配也必然先命中 black，
+//     于是金款的槽位只能来自 black（颜色对、透明度错）；而 alpha 又已经写在 styles.line-opacity 里
+//     ⇒ 同一个概念写两处，两边一旦不一致就没有权威。两者现已收敛为 styles 一处。
+//   · 槽位写【数字 0..1】而不是 APK 的 #AARRGGBB：引擎只消费 alpha（颜色另有来源），
+//     而 8 位十六进制表达不了 line-opacity 的精确浮点（0.3 ≠ #4D/255 = 0.30196…），写颜色会破坏逐像素等价。
+//   · 槽位 1（分隔线 @foreground=1）的权威是 styles.line-opacity（浮点精确值），
+//     foreground-slots[1] 是它的同义项，build.py 强制两者相等（见 core/10-style.js lgFillAlpha）。
+//   · 数组里没声明这一档（N 越界）= 不透明：这是本文件唯一的默认值，与参考实现 WmRes.resolve_color
+//     的越界兜底（返回不透明的 #FF000000）同义；三份 preset 都声明满 5 档，正常路径不会走到。
 var lgForegroundAlpha = function (n, style) {
   var idx = parseInt(n, 10);
   if (!isFinite(idx) || idx < 0) idx = 0;
-  var pal = lgPaletteFor(CONFIG, style);
-  var list = pal ? (pal.foreground || []) : [];
-  if (idx < list.length) return lgColorAlpha(list[idx]);
-  return Math.max(0, 1 - 0.25 * idx);
+  var slots = (style || {})['foreground-slots'];
+  if (slots && idx < slots.length) {
+    var a = parseFloat(slots[idx]);
+    if (isFinite(a)) return Math.max(0, Math.min(1, a));
+  }
+  return 1;
 };
-// 文字颜色（font.color）的透明度：@foreground=N → 调色板第 N 项；其余（#AARRGGBB / @color=#.. / 具名色）→ 颜色自带 alpha
+// 文字颜色（font.color）的透明度：@foreground=N → 该样式的第 N 个槽位；其余（#AARRGGBB / @color=#..）→ 颜色自带 alpha
 var lgTextAlpha = function (ref, style) {
   var s = String(ref == null ? '' : ref).trim();
   if (s.indexOf('@foreground=') === 0) return lgForegroundAlpha(s.split('=')[1], style);
@@ -424,13 +379,14 @@ var textCss = function (v) {
 };
 
 // 节点自身的填充：
-//   "@foreground=N" = 前景色条（分隔线）—— 颜色取样式前景，透明度取【调色板第 N 项的 alpha】
+//   "@foreground=N" = 前景色条（分隔线）—— 颜色取样式前景，透明度取【该样式声明的第 N 个槽位】
 //   "@background=name" = 主题底色 —— 本项目由 styles 的 background-color 统一决定，节点不再刷一层
-// ★ 不再另乘 line-opacity：本项目的 line-opacity 就是调色板第 1 项 alpha 的手工等价物
-//   （leica 浅色 0.3 = #4D/255、深色 0.7 = #B2/255，由 apk2preset 从 APK 调色板换算而来），
-//   两个都在就会重复相乘 —— 参考件 leica_1 的分隔线实测是 30% 黑，再乘一次会掉到 9%（见 _local 对照）。
-//   分隔线（N=1）保持样式里的 line-opacity 为准（5 个样式里只有 red 款手工写了 0.6，其余等于调色板
-//   第 1 项的 alpha）⇒ 零回归；N≥2 用调色板第 N 项的 alpha；调色板缺席时退回近似式 1−0.25N。
+// ★ 不再另乘任何透明度：@foreground=N 的 alpha 已经由 styles.foreground-slots 给全，
+//   颜色自带的 alpha 也由 wmDrawFill 单独取出（见 40-draw 注释），两个都乘就会重复相乘
+//   —— 参考件 leica_1 的分隔线实测是 30% 黑，再乘一次会掉到 9%（见 _local 对照）。
+//   分隔线（N=1）的 alpha 唯一来源 = styles.line-opacity：它是浮点精确值（0.3 / 0.7 / 0.6 …），
+//   而槽位数组是数字，两者是同义项 —— build.py 强制 foreground-slots[1] == line-opacity，
+//   所以这里取哪个都不会出现"两处不一致"；取 line-opacity 是为了保住历史口径与浮点精度。
 var lgFillAlpha = function (n, style) {
   var idx = parseInt(n, 10);
   if (!isFinite(idx) || idx < 0) idx = 0;
@@ -828,8 +784,9 @@ var wmDrawText = function (ctx, v) {
   ctx.font = wmFontStr(f, sizePx);
   ctx.textBaseline = 'alphabetic';
   // 文字透明度 = 颜色自带的 alpha × font.opacity（两个独立来源，同时存在就【相乘】）：
-  //   颜色 alpha：@foreground=N → 当前主题调色板第 N 项的 alpha（莱卡 1 号 f2 = @foreground=2 ⇒ 50% 黑，
-  //   以前被忽略 ⇒ 日期/经纬度那行偏深）；#AARRGGBB / @color=#AARRGGBB → 颜色通道里的 alpha。
+  //   颜色 alpha：@foreground=N → 选中样式声明的第 N 个槽位（styles.foreground-slots[N]；
+  //   莱卡 1 号浅色款 f2 = @foreground=2 ⇒ 50% 黑，以前被忽略 ⇒ 日期/经纬度那行偏深）；
+  //   #AARRGGBB / @color=#AARRGGBB → 颜色通道里的 alpha。
   //   font.opacity：字体对象上的显式不透明度（目前 preset 未用，保留语义）。
   var ca = lgTextAlpha(f.color, CONFIG.appearance);
   if (f.opacity != null) ca *= parseFloat(f.opacity);
@@ -864,10 +821,10 @@ var wmDrawText = function (ctx, v) {
   ctx.restore();
 };
 
-// 分隔线等：节点自身带 @foreground 填充 ⇒ 用【样式前景色 + 调色板第 N 项的 alpha】铺（与参考实现
+// 分隔线等：节点自身带 @foreground 填充 ⇒ 用【样式前景色 + 该样式第 N 个槽位的 alpha】铺（与参考实现
 // resolve_color 一致：参考件就是把 @foreground=N 解析成一个带 alpha 的纯色）。alpha 的推导与
-// "为什么不另乘 line-opacity" 见 10-style.js 的 lgFillAlpha 注释。
-// 两张来源都是"纯色 + 独立 alpha"：颜色串只留 RGB（lgCssColor 会保留调色板项自带的 alpha，
+// "为什么不另乘别的透明度" 见 10-style.js 的 lgFillAlpha 注释。
+// 两张来源都是"纯色 + 独立 alpha"：颜色串只留 RGB（lgCssColor 会把颜色自带的 alpha 也带进去，
 // 这里再被下面的 globalAlpha 乘一次就是双层 alpha ⇒ 偏暗，所以 fillStyle 用 lgCssColor 的结果、
 // alpha 统一由 fill.alpha 给）。
 var wmDrawFill = function (ctx, v) {
@@ -1050,8 +1007,11 @@ var wmPublish = function (canvas) {
     CONFIG.unit = parseFloat(CONFIG.unit) || 1;
 
     // 2) 选中样式（快捷指令从该 preset 的 styles 里挑一款传进来）→ 改写 CONFIG.appearance，见 §4.5
+    //    foreground-slots 是 @foreground=N 的透明度槽位数组（见 core/05-layout lgForegroundAlpha）：
+    //    选中样式的整份词典都在这里落地，缺了它就把槽位悄悄丢了。
     var ap = CONFIG.appearance = CONFIG.appearance || {};
     var APP_KEYS = ['foreground-start','foreground-end','foreground-stop','foreground-direction',
+                    'foreground-slots',
                     'line-opacity','background-color','background-image','background-fit','text-shadow'];
     for (var a = 0; a < APP_KEYS.length; a++) {
       var ak = APP_KEYS[a];
