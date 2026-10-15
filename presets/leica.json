@@ -258,7 +258,8 @@
                       "display_height": "64dp",
                       "display_width": "0dp",
                       "path": "pathType=direct;path=logo",
-                      "max_width": 256,
+                      "max_width": 0,
+                      "max_width_ratio": 2.5,
                       "childViews": []
                     },
                     {
@@ -443,7 +444,8 @@
                       "display_height": "64dp",
                       "display_width": "0dp",
                       "path": "pathType=direct;path=logo",
-                      "max_width": 256,
+                      "max_width": 0,
+                      "max_width_ratio": 2.5,
                       "childViews": []
                     },
                     {

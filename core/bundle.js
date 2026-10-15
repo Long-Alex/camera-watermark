@@ -194,6 +194,7 @@ var lgBuild = function (nodes, pkey) {
       background: n.background || null, children: [], text: '', font: null,
       optional: !!n.optional, dw: lgDim(n.display_width, 0), dh: lgDim(n.display_height, 0),
       maxW: (typeof n.max_width === 'number') ? n.max_width : null,
+      maxWR: (typeof n.max_width_ratio === 'number') ? n.max_width_ratio : null,
       img: null, enabled: true, w: 0, h: 0, x: 0, y: 0, _t: null,
       _key: (pkey || '') + '#' + i
     };
@@ -231,14 +232,24 @@ var lgSizeImage = function (v, aspect) {
   else if (dh > 0) { v.w = dh * aspect; v.h = dh; }
   else if (dw > 0) { v.w = dw; v.h = aspect > 0 ? dw / aspect : 0; }
   else { v.w = v.img.w * s; v.h = v.img.h * s; }
-  // ★宽度上限只认节点自己声明的 dp 预算（max_width；0/缺省 = 不限）★
-  //   这里以前还有一条 "min(max_width, 显示高度 × 2)" 的派生上限（commit f82c8c1 / 踩坑 §26）：
-  //   那是为 12.8:1 的哈苏 wordmark 打的补丁，而该素材已在 4384774 换成 1.26:1 的"H"标 ——
-  //   补丁的触发素材不在了，只留下副作用：宽高比 > 2 的素材 display_height 形同虚设
-  //   （Canon 4.75 → 高度只达成 42%、SONY 5.68 → 35%），节点声明的 max_width 也被架空。
-  //   派生值还跟行内真实剩余宽度无关（"各处兜底、各处不一致"的根源）。
-  //   放不下由 90-boot 的 lgFitImages【让图片让位】处理：先缩自适应宽度的图片，文字保持设计字号。
-  var capDp = (typeof v.maxW === 'number' && v.maxW > 0) ? v.maxW : 0;
+  // ★宽度闸门 = min(max_width_ratio × display_height, max_width)★
+  //   两个分量都是【preset 节点上可逐款声明的字段】，引擎里不留任何"拍脑袋常量"：
+  //     · max_width_ratio：宽度 ÷ 显示高度 的比例闸门（0 = 不限该闸门）；缺省 2（= 历史默认口径）
+  //     · max_width：绝对硬上限（dp；0/缺省 = 不设该上限）
+  //   为什么必须有比例闸门（用户 2026-10-15 实测否决"只认 max_width"）：长字标一旦无人争宽
+  //   （竖排/行内余量很大）就会膨胀 —— shoton 78dp 的 SONY 443×78，比 380dp 宽的
+  //   "Shot on iPhone 15 Pro" 文案还宽。display_height 只是"盒子高"，管不住宽度。
+  //   ★也不能写死成引擎常量★（原 "高度 × 2" 的毛病）：12.8:1 的哈苏 wordmark 时代它是补丁，
+  //   素材换成 1.26:1 的"H"标（4384774）后只留下副作用 —— Canon 4.75 → 高度只达成 42%、
+  //   SONY 5.68 → 35%。所以：闸门比例进 preset（逐款可改），行内放不下再交给 90-boot 的
+  //   lgFitImages【让图片让位】（先缩自适应宽度的图片，文字保持设计字号）。
+  var capDp = (typeof v.maxW === 'number' && v.maxW > 0) ? v.maxW : 0;                 // 绝对硬上限
+  var ratio = (typeof v.maxWR === 'number' && v.maxWR >= 0) ? v.maxWR : 2;             // 比例闸门（默认 2）
+  var hDp = (v.dh && v.dh.v !== LG_WRAP && v.dh.v !== LG_MATCH) ? v.dh.v : 0;          // 盒子高（dp）
+  if (ratio > 0 && hDp > 0) {
+    var rDp = hDp * ratio;
+    capDp = (capDp > 0) ? Math.min(capDp, rDp) : rDp;
+  }
   if (capDp > 0 && v.w > capDp * s) { v.w = capDp * s; v.h = aspect > 0 ? v.w / aspect : v.h; }
   // 行内让位因子（lgFitImages 按真实剩余宽度回填）：宽高一起等比缩，保证素材不变形
   var fit = LG_IMG_FIT[v._key];
