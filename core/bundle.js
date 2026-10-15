@@ -266,7 +266,12 @@ var lgSizeImage = function (v, aspect) {
   else if (dh > 0) { v.w = dh * aspect; v.h = dh; }
   else if (dw > 0) { v.w = dw; v.h = aspect > 0 ? dw / aspect : 0; }
   else { v.w = v.img.w * s; v.h = v.img.h * s; }
-  if (v.maxW && v.w > v.maxW * s) { v.w = v.maxW * s; v.h = aspect > 0 ? v.w / aspect : v.h; }
+  // ★安全宽度 = 高度的 2 倍★（用户 2026-10-15 定）：宽字标（哈苏那种长条 logo）不再把右侧文字挤扁。
+  //   节点上若另有 max_width（项目对小米引擎的有意外加），取更严的那个；0/缺省 = 不额外限制。
+  var capDp = (typeof v.maxW === 'number' && v.maxW > 0) ? v.maxW : 0;
+  var hDp = (v.dh && v.dh.v !== LG_WRAP && v.dh.v !== LG_MATCH) ? v.dh.v : 0;
+  if (hDp > 0) capDp = (capDp > 0) ? Math.min(capDp, hDp * 2) : hDp * 2;
+  if (capDp > 0 && v.w > capDp * s) { v.w = capDp * s; v.h = aspect > 0 ? v.w / aspect : v.h; }
 };
 
 var lgTextSize = function (v, sizeScale) {
