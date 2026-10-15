@@ -95,7 +95,7 @@
                   "type": "ImageView",
                   "id": "logo",
                   "layout_gravity": "center_horizontal",
-                  "display_height": "58dp",
+                  "display_height": "78dp",
                   "display_width": "0dp",
                   "path": "pathType=direct;path=logo",
                   "max_width": 400,
