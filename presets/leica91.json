@@ -46,7 +46,7 @@
     "overlay": {
       "anchor": "Center",
       "width": "photo",
-      "height": 180.5,
+      "height": "photo",
       "rotation": 0,
       "opacityPercent": 100
     }
@@ -63,8 +63,8 @@
           "type": "Layout",
           "id": "all_content",
           "orientation": "overlap",
-          "layout_width": "wrap_content",
-          "layout_height": "wrap_content",
+          "layout_width": "match_parent",
+          "layout_height": "match_parent",
           "gravity": "left",
           "margin_left": "0dp",
           "margin_top": "0dp",
