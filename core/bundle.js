@@ -591,6 +591,9 @@ var userFbVal = function (k) {
 var userShowDate = function () {          // showDate 开关（款式不支持就不生效）
   return userCap('date') ? (userCfg().showDate !== false) : true;
 };
+var userShowLocation = function () {      // showLocation 开关：false ⇒ 经纬度整行隐掉（含自定义文本）
+  return userCfg().showLocation !== false;
+};
 // 自定义文本：★没有开关★ —— 有值就用（外加款式支持），空值自然不生效
 var userExifText = function () {
   if (!userCap('exifText')) return '';
@@ -638,12 +641,14 @@ var dms = function (v, pos, neg) {     // Ci.a.d(): 度分秒整数截断 + 半�
   return d + '°' + m + "'" + pad2(s) + '"' + hemi;
 };
 var hasGps = function () {
-  // "有定位" = 照片有经纬度、或用户指定了自定义文本/兜底经纬度（三者在快捷指令侧同口径判定，决定版式与带高）
+  // "有定位" = 照片有经纬度、或用户指定了自定义文本/兜底经纬度（快捷指令侧同口径判定，决定版式与带高）
+  if (!userShowLocation()) return false;   // 用户关掉定位行 ⇒ 一律按"无定位"排版
   if (userLocText()) return true;
   if (CONFIG.lat != null && CONFIG.lat !== '' && CONFIG.lon != null && CONFIG.lon !== '') return true;
   return userFbVal('latitude') !== undefined && userFbVal('longitude') !== undefined;
 };
 var latlng = function () {             // 单行，纬经之间【两个空格】（模板不拆行）
+  if (!userShowLocation()) return '';  // showLocation=false ⇒ 整行为空 ⇒ optional 节点塌陷（隐掉）
   var t = userLocText();               // 1) 自定义文本（如"九州歌盛世"）
   if (t) return t;
   var lat = CONFIG.lat, lon = CONFIG.lon;
