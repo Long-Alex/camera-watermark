@@ -847,7 +847,14 @@ var wmDrawText = function (ctx, v) {
     var line = lines[i];
     var x = v.ax;
     var y = v.ay + lh * i + (lh - (asc + desc)) / 2 + asc;
-    ctx.fillStyle = wmForeground(ctx, v.ax, v.ay, v.w || 1, lh);    if (ls <= 0.001) { ctx.fillText(line, x, y); continue; }
+    // ★渐变的"作用框"= 从本节点左边缘起算、宽度撑到整条水印带★（不是节点自己的紧框）。
+    //   对齐 V11 的机制：它把渐变挂在很宽的 flex 容器上（background-clip:text 裁成文字），
+    //   每个元素各自从自己的左边缘开始 ⇒ 文字基本落在 0~30% 的"纯 start 色"区，看起来是柔和的纯色。
+    //   我们以前用文字紧框 ⇒ 45°（玫瑰金）会在每个字内部斜切，又乱又脏；
+    //   改成宽框后，只有 start≠end 的款式（当前 = rose）视觉变化；gold/dark/light/red 两个 stop 同色，逐像素不变。
+    var gradW = (typeof BAND_PX_W === 'number' && isFinite(BAND_PX_W) && BAND_PX_W > 0)
+      ? Math.max(v.w || 1, BAND_PX_W - v.ax) : (v.w || 1);
+    ctx.fillStyle = wmForeground(ctx, v.ax, v.ay, gradW, lh);    if (ls <= 0.001) { ctx.fillText(line, x, y); continue; }
     for (var c = 0; c < line.length; c++) {
       var ch = line.charAt(c);
       ctx.fillText(ch, x, y);
