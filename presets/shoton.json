@@ -7,10 +7,10 @@
     "source": "本项目：Shot on iPhone 叠加（叠加模式 ⇒ 层=整张照片；两行徽标 = logo + Shot on 机型）",
     "gravityHint": "位置改 JSON 即可（shot_badge.gravity / margin_top）：上='top|center_horizontal' + margin_top 110dp；中='center_horizontal|center_vertical' + 0dp；下='bottom|center_horizontal' + margin_top -110dp",
     "bandDpByVariant": {
-      "layout": 161.0
+      "layout": 123.0
     },
-    "bandDpGps": 161.0,
-    "bandDpLocOff": 161.0
+    "bandDpGps": 123.0,
+    "bandDpLocOff": 123.0
   },
   "type": {
     "Shot on iPhone": "white",
