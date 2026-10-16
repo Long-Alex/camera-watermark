@@ -10,11 +10,11 @@
     "bandDpLocOff": 143.0
   },
   "type": {
-    "Shot on iPhone": "white",
-    "Shot on iPhone（深色）": "dark"
+    "晨曦白": "light",
+    "曜石黑": "dark"
   },
   "styles": {
-    "white": {
+    "light": {
       "foreground-start": "#FFFFFF",
       "foreground-end": "#FFFFFF",
       "foreground-stop": "30%",

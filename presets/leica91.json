@@ -10,11 +10,11 @@
     "bandDpLocOff": 180.5
   },
   "type": {
-    "晨曦白": "white",
+    "晨曦白": "light",
     "曜石黑": "dark"
   },
   "styles": {
-    "white": {
+    "light": {
       "foreground-start": "#FFFFFF",
       "foreground-end": "#FFFFFF",
       "foreground-stop": "30%",
