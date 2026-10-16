@@ -100,7 +100,7 @@ var lgBuild = function (nodes, pkey) {
       background: n.background || null, childViews: [], text: '', font_ref: null,
       optional: !!n.optional, display_width: lgDim(n.display_width), display_height: lgDim(n.display_height),
       max_width: lgNum(n.max_width),                    // 绝对宽度上限（dp；0dp = 不设该上限）
-      max_width_ratio: (n.max_width_ratio == null || n.max_width_ratio === '') ? 0 : parseFloat(n.max_width_ratio),
+      max_width_ratio: (n.max_width_ratio == null || n.max_width_ratio === '') ? 2 : parseFloat(n.max_width_ratio),
       path: '', img: null, enabled: true, w: 0, h: 0, x: 0, y: 0, textMetrics: null,
       _key: (pkey || '') + '#' + i
     };
@@ -853,20 +853,28 @@ var wmFontStr = function (f, sizePx) {
   return wmFontWeight(f) + ' ' + sizePx + 'px ' + wmFontFam(f['font-family']);
 };
 
-// 文字阴影：CSS 简写（"0 1px 1px #80000000" / "0px 1px 2px rgba(0,0,0,.6)"）→ ctx.shadow*，单位可省。
-// ⚠ 颜色原样交给 ctx.shadowColor，而 canvas 把 8 位十六进制按 CSS 的 #RRGGBBAA 解析：
-//   preset 里写的是 ARGB 口径（#80000000 = 50% 黑），到这里会被读成 rgba(128,0,0,0) —— 全透明，
-//   即当前 shadow 声明实际不产生阴影（详见审计报告"未解决项"）。
+// 文字阴影：CSS 简写 → ctx.shadow*。格式 <x> <y> [blur] <color>，数值可省 px、可为负数。
+// 颜色必须过 lgCssColor：preset 的长度/颜色一律 ARGB 口径（#80000000 = 50% 黑），
+// 而 canvas 自己的 8 位十六进制按 CSS 的 #RRGGBBAA 解析（#80000000 会变成全透明 rgba(128,0,0,0)）。
+// blur 省略时按 0 处理；颜色取简写的最后一个空白分隔字段（因此颜色本身不能含空格，
+// 六位色 / 具名色 / rgba(...) 均满足）。
 var wmShadow = function (ctx, css) {
   ctx.shadowOffsetX = ctx.shadowOffsetY = ctx.shadowBlur = 0;
   ctx.shadowColor = 'rgba(0,0,0,0)';
-  if (!css) return;
-  var m = String(css).match(/(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?\s+(.+)$/);
-  if (!m) return;
-  ctx.shadowOffsetX = parseFloat(m[1]);
-  ctx.shadowOffsetY = parseFloat(m[2]);
-  ctx.shadowBlur = parseFloat(m[3]);
-  ctx.shadowColor = m[4].trim();
+  var s = String(css == null ? '' : css).trim();
+  if (!s) return;
+  var parts = s.split(/\s+/);
+  if (parts.length < 2) return;                       // 至少 <x> <color>
+  var color = parts[parts.length - 1];
+  var nums = parts.slice(0, parts.length - 1);
+  if (nums.length > 3) return;                        // 颜色带空格（如 "0 0 rgba(0, 0, 0, .5)"）不支持
+  var xy = nums.map(function (t) { return parseFloat(t); });
+  if (!isFinite(xy[0]) || !isFinite(xy[1])) return;
+  ctx.shadowOffsetX = xy[0];
+  ctx.shadowOffsetY = xy[1];
+  ctx.shadowBlur = nums.length > 2 && isFinite(xy[2]) ? xy[2] : 0;
+  var c = lgCssColor(color);
+  if (c) ctx.shadowColor = c;
 };
 
 // 文本：逐字绘制以复刻 letter-spacing（05-layout 的 lgTextWidth 也是"整串宽度 + 每字符补一个
