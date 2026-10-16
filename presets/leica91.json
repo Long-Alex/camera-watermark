@@ -163,7 +163,7 @@
                             "margin_left": "0dp",
                             "margin_top": "0dp",
                             "optional": false,
-                            "text": "@model= @{series}@{versionNumber}",
+                            "text": "@model=@{series}@{versionNumber}",
                             "font_ref": "f1",
                             "childViews": []
                           }
@@ -437,7 +437,7 @@
                             "margin_left": "0dp",
                             "margin_top": "0dp",
                             "optional": false,
-                            "text": "@model= @{series}@{versionNumber}",
+                            "text": "@model=@{series}@{versionNumber}",
                             "font_ref": "f1",
                             "childViews": []
                           }
