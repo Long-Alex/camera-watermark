@@ -194,7 +194,7 @@
       "line-height": 47.0,
       "design-weight": 501,
       "font-family": "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif",
-      "shadow": "0 1px 1px #80000000",
+      "shadow": "",
       "letter-spacing": "0.01em",
       "opacity": 1
     }
