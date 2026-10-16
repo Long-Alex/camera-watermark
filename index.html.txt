@@ -1,12 +1,6 @@
 <!DOCTYPE html><html><head><meta charset=utf-8>
-<!-- 布局视口必须 = 请求宽度（= 照片像素宽；不再除以 dpr，见踩坑 §9.1b）：手机（iOS/Android）对没有 viewport 的页面
-     用默认 980px 排版再整页缩进请求的图，会让绝对 px 的字号/边距缩水到 reqW/980 ≈ 1/3。
-     （桌面 Chrome/macOS 忽略这一条，所以本地校验看不出来 → 见 mobile_viewport_check.py） -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style id="wm-style">
-/* 纯 canvas 直绘：页面里【没有任何布局 DOM 盒子】，只留 canvas + 最终那一个成品 <img>。
-   取图动作 is.workflow.actions.detect.images 是从页面内容里【提取图像】，所以必须恰好一个 <img>。
-   底色/背景图/渐变全部由 40-draw.js 在 canvas 上绘制，不再依赖任何 CSS。 */
 html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;}
 #wm-logo-src{display:none!important;}
 #wm-canvas{position:absolute;left:0;top:0;}
@@ -26,10 +20,6 @@ var RTV     = { unit:@@UNIT@@, model:"@@MODEL@@", date:"@@TIME@@",
                 aperture:"@@APERTURE@@", speed:"@@SPEED@@", iso:"@@ISO@@",
                 lat:"@@LAT@@", lon:"@@LON@@" };
 var BAND_W  = @@BAND_W@@, BAND_H = @@BAND_H@@;  // 带子的实际像素尺寸（快捷指令按尺寸链算出）
-/* 画布尺寸按【整数像素】定：BAND_H 常带小数（91 号在 1080×1440 上恰好是 180.5），而 canvas 的
-   width/height【属性】按"非负整数"解析会把它截断 ⇒ 页面声明的 BAND_H 与真实画布不等，
-   40-draw 的尺寸自检会误报、遥测 band 与校验脚本的口径也不一致。
-   用向下取整：= 历史的内容属性行为 = wm_plan 的 int(renderHeight)，视觉零变化。 */
 var BAND_PX_W = Math.max(1, Math.floor(BAND_W));
 var BAND_PX_H = Math.max(1, Math.floor(BAND_H));
 (function () { var c = document.getElementById('wm-canvas'); if (c) { c.width = BAND_PX_W; c.height = BAND_PX_H; } })();
