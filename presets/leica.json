@@ -338,7 +338,7 @@
                       {
                         "type": "TextView",
                         "id": "exif",
-                        "gravity": "right",
+                        "gravity": "left",
                         "margin_left": "0dp",
                         "margin_top": "0dp",
                         "optional": false,
@@ -594,7 +594,7 @@
                       {
                         "type": "TextView",
                         "id": "exif",
-                        "gravity": "right",
+                        "gravity": "left",
                         "margin_left": "0dp",
                         "margin_top": "0dp",
                         "optional": false,
